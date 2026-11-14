@@ -29,13 +29,16 @@ for P in "${PEDIDOS[@]}"; do
   jq -c '. + {estado: "descargando"}' <<<"$J" | rclone rcat "$Q/$P"
 
   # ¿Es multimedia? Por extensión o por el tipo que declara el servidor
-  CT=$(curl -sIL --max-time 20 -A 'Mozilla/5.0' "$URL" | grep -i '^content-type:' | tail -1 | tr -d '\r' | cut -d' ' -f2- | cut -d';' -f1)
+  HDRS=$(curl -sIL --max-time 20 -A 'Mozilla/5.0' "$URL" | tr -d '\r')
+  CT=$(grep -i '^content-type:' <<<"$HDRS" | tail -1 | cut -d' ' -f2- | cut -d';' -f1)
+  NAMEOPT=(--auto-filename)   # nombre tomado del enlace; si el servidor manda uno, se usa ese
+  grep -qi '^content-disposition:.*filename' <<<"$HDRS" && NAMEOPT=(--auto-filename --header-filename)
   PATHPART="${URL%%\?*}"
   if ! [[ "${PATHPART,,}" =~ $MEDIA || "${CT,,}" =~ ^(video|audio|image)/ ]]; then
     falla "$P" "$J" "No parece un archivo multimedia (tipo: ${CT:-desconocido})"; continue
   fi
 
-  if rclone copyurl "$URL" "drive,root_folder_id=${DEST}:" --auto-filename --header-filename \
+  if rclone copyurl "$URL" "drive,root_folder_id=${DEST}:" "${NAMEOPT[@]}" \
        --user-agent 'Mozilla/5.0' --retries 3 --low-level-retries 10 --stats 30s --stats-one-line -v; then
     rclone deletefile "$Q/$P"; echo "  OK"
   else
