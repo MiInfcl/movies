@@ -5,6 +5,7 @@
 set -uo pipefail
 R="drive,root_folder_id=${ROOT_ID}:"          # remoto "drive" del rclone.conf, anclado a la carpeta raíz
 Q="${R}${QUEUE_NAME}"
+PISTAS_NAME="${PISTAS_NAME:-_pistas}"
 MEDIA='\.(mp4|m4v|webm|mkv|mov|avi|ts|wmv|mp3|m4a|aac|flac|wav|ogg|opus|jpe?g|png|gif|webp)$'
 
 mapfile -t PEDIDOS < <(rclone lsf "$Q" --files-only --filter '- *.error.json' --filter '+ pedido-*.json' --filter '- *' 2>/dev/null)
@@ -38,10 +39,17 @@ for P in "${PEDIDOS[@]}"; do
     falla "$P" "$J" "No parece un archivo multimedia (tipo: ${CT:-desconocido})"; continue
   fi
 
-  if rclone copyurl "$URL" "drive,root_folder_id=${DEST}:" "${NAMEOPT[@]}" \
-       --user-agent 'Mozilla/5.0' --retries 3 --low-level-retries 10 --stats 30s --stats-one-line -v; then
+  # Se baja al runner (para sacarle las pistas con ffmpeg) y después se sube a Drive
+  DL=$(mktemp -d)
+  if rclone copyurl "$URL" "$DL" "${NAMEOPT[@]}" \
+       --user-agent 'Mozilla/5.0' --retries 3 --low-level-retries 10 --stats 30s --stats-one-line -v \
+     && node scripts/pistas.js "$DL" \
+     && rclone copy "$DL" "drive,root_folder_id=${DEST}:" --exclude '.pistas/**' --stats 30s --stats-one-line -v \
+     && { [ ! -d "$DL/.pistas" ] || rclone copy "$DL/.pistas" "${R}${PISTAS_NAME}" -v; }; then
     rclone deletefile "$Q/$P"; echo "  OK"
+    rm -rf "$DL"
   else
+    rm -rf "$DL"
     falla "$P" "$J" "La descarga falló (el enlace puede haber vencido o pedir inicio de sesión)"
   fi
 done

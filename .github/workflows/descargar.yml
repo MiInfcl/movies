@@ -20,6 +20,11 @@ jobs:
         run: |
           curl -fsSL https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-linux-amd64.zip -o rclone.zip
           unzip -q rclone.zip && sudo install rclone-*/rclone /usr/local/bin/ && rm -rf rclone*
+      - name: Instalar ffmpeg (para sacar audios y subtítulos)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Configurar Drive
         env:
           RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
