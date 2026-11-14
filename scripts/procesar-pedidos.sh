@@ -7,13 +7,13 @@ R="drive,root_folder_id=${ROOT_ID}:"          # remoto "drive" del rclone.conf, 
 Q="${R}${QUEUE_NAME}"
 MEDIA='\.(mp4|m4v|webm|mkv|mov|avi|ts|wmv|mp3|m4a|aac|flac|wav|ogg|opus|jpe?g|png|gif|webp)$'
 
-mapfile -t PEDIDOS < <(rclone lsf "$Q" --files-only --include 'pedido-*.json' --exclude '*.error.json' --exclude '*.trabajando.json' 2>/dev/null)
+mapfile -t PEDIDOS < <(rclone lsf "$Q" --files-only --exclude '*.error.json' --include 'pedido-*.json' --exclude '*' 2>/dev/null)
 echo "Pedidos en cola: ${#PEDIDOS[@]}"
 
 falla() {  # $1 nombre del pedido, $2 json original, $3 motivo
   local base="${1%.json}"
   jq -c --arg e "$3" '. + {error: $e}' <<<"$2" | rclone rcat "$Q/$base.error.json"
-  rclone deletefile "$Q/$1" 2>/dev/null; rclone deletefile "$Q/$base.trabajando.json" 2>/dev/null
+  rclone deletefile "$Q/$1" 2>/dev/null
   echo "  FALLÓ: $3"
 }
 
