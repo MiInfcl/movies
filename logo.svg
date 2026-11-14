@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b8cff"/><stop offset="1" stop-color="#0b2a63"/></linearGradient>
+    <linearGradient id="tarjeta" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dbe9ff"/></linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#fondo)"/>
+  <!-- tarjetas apiladas: la biblioteca -->
+  <rect x="30" y="22" width="60" height="44" rx="10" fill="#ffffff" opacity=".22" transform="rotate(-8 60 44)"/>
+  <rect x="30" y="28" width="60" height="44" rx="10" fill="#ffffff" opacity=".38" transform="rotate(5 60 50)"/>
+  <rect x="24" y="38" width="72" height="56" rx="12" fill="url(#tarjeta)"/>
+  <!-- monograma M -->
+  <path d="M41 82V52l19 18 19-18v30" fill="none" stroke="#1d5fd6" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
