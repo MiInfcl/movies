@@ -197,6 +197,19 @@ async function start() {
     show('app'); sendTokenToSW(); render();
   } catch (e) { show('login'); $('#eLogin').textContent = e.message; }
 }
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// Sin HTTPS el navegador no permite el service worker (y sin él los videos no cargan): ir a https si existe.
+const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+if (location.protocol === 'http:' && !local) {
+  fetch('https://' + location.host + '/config.js', { mode: 'no-cors', cache: 'no-store' })
+    .then(() => location.replace('https://' + location.host + location.pathname + location.hash))
+    .catch(() => { show('login'); $('#bLogin').disabled = true;
+      $('#eLogin').textContent = 'El sitio todavía no tiene HTTPS activo. Vuelve a intentarlo en unos minutos.'; });
+  return;
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => { $('#eLogin').textContent = 'No se pudo activar el reproductor: ' + e.message; });
+  // En la primera visita, mandar el token apenas el service worker tome el control
+  if (!navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener('controllerchange', () => sendTokenToSW(), { once: true });
+}
 if (valid()) start(); else show('login');
 })();
