@@ -17,6 +17,8 @@
 .login .gbtn{background:var(--glass2);box-shadow:none;border:1px solid var(--line)}
 .sep{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:.8rem}.sep:before,.sep:after{content:"";flex:1;height:1px;background:var(--line)}
 .lerr{color:#ff9aa2;text-align:center;font-size:.88rem;min-height:1.2em}
+.login .acerca{font-size:.8rem;line-height:1.5;text-align:left;border-top:1px solid var(--line);padding-top:12px}
+.login .legal{font-size:.8rem}.login .legal a{color:var(--acc2);text-decoration:none}
 .title{flex-wrap:wrap}
 .who{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:.82rem;font-weight:500;color:var(--mut)}
 .who b{color:var(--tx);font-weight:600}.who .rol{padding:2px 8px;border-radius:999px;background:rgba(78,161,255,.22);color:var(--acc2);font-size:.72rem}
@@ -64,6 +66,8 @@ button.more svg{width:20px;height:20px;fill:var(--acc2)}
     <div class="sep">o</div>
     <button id="bLogin" type="button" class="gbtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M20.5 12.2c0-.7-.1-1.3-.2-1.9H12v3.6h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.6-3.9 2.6-6.6z"/><path d="M12 21c2.4 0 4.5-.8 5.9-2.2l-2.9-2.2c-.8.5-1.8.9-3 .9a5.2 5.2 0 0 1-4.9-3.6H4.1v2.3A9 9 0 0 0 12 21z"/><path d="M7.1 13.9a5.4 5.4 0 0 1 0-3.4V8.2h-3a9 9 0 0 0 0 8z"/><path d="M12 6.6c1.3 0 2.5.5 3.4 1.3l2.6-2.6A9 9 0 0 0 4.1 8.2l3 2.3A5.2 5.2 0 0 1 12 6.6z"/></svg>Entrar con Google</button>
     <div class="lerr" id="eLogin"></div>
+    <p class="acerca">Mis medios es una biblioteca personal y privada de videos, música e imágenes guardados en Google Drive. Permite verlos y descargarlos desde cualquier navegador, cambiar el idioma del audio y los subtítulos, y agregar archivos pegando un enlace. Con Google solo se usa tu nombre y correo para identificarte; el acceso lo da el administrador.</p>
+    <p class="legal"><a href="privacidad.html">Política de privacidad</a> · <a href="terminos.html">Términos de uso</a></p>
   </form>
 
   <div id="vApp" class="hidden">
