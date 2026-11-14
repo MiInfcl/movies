@@ -1,4 +1,4 @@
-// Service worker: convierte /stream/<id>/<nombre> en una petición a Google Drive con el token de la sesión,
+// v2 · Service worker: convierte /stream/<id>/<nombre> en una petición a Google Drive con el token de la sesión,
 // pasando el Range (para adelantar videos y retomar descargas) y, con ?dl=1, el nombre original del archivo.
 const TOKEN_CACHE = 'medios-auth', TOKEN_KEY = '/__token__';
 let mem = null;   // { token, exp }

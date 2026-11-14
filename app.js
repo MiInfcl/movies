@@ -208,9 +208,14 @@ if (location.protocol === 'http:' && !local) {
   return;
 }
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(e => { $('#eLogin').textContent = 'No se pudo activar el reproductor: ' + e.message; });
-  // En la primera visita, mandar el token apenas el service worker tome el control
-  if (!navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener('controllerchange', () => sendTokenToSW(), { once: true });
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+    .then(reg => reg.update())   // buscar siempre la versión nueva del reproductor
+    .catch(e => { $('#eLogin').textContent = 'No se pudo activar el reproductor: ' + e.message; });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController) location.reload();   // llegó un reproductor nuevo: recargar una vez para usarlo
+    else sendTokenToSW();                   // primera visita: mandarle la sesión
+  }, { once: true });
 }
 if (valid()) start(); else show('login');
 })();
