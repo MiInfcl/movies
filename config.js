@@ -4,7 +4,7 @@ window.MEDIOS = {
   CLIENT_ID: '868288828915-vkouml3on1ad948t745hnq1ub3ee4gmk.apps.googleusercontent.com',
   // Carpeta raíz en Google Drive con los medios (su ID, de la URL drive.google.com/drive/folders/<ID>).
   // Si queda vacío, se busca una carpeta llamada ROOT_NAME.
-  ROOT_ID: '',
+  ROOT_ID: '1pu05fh_NWot39dUY0KTviW2aX2aA-NyO',
   ROOT_NAME: 'Mis medios',
   // Subcarpeta (dentro de la raíz) donde la web deja los pedidos de descarga que procesa GitHub Actions.
   QUEUE_NAME: '_pedidos',
