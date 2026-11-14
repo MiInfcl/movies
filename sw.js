@@ -23,6 +23,19 @@ async function getToken() {
   return mem ? mem.token : null;
 }
 
+// Google no expone Content-Range ni Content-Type a otros dominios (CORS), así que se arman aquí
+// con el tamaño y el tipo del archivo, que se piden una vez por archivo.
+const META = new Map();
+const EXT_TYPE = { mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mkv: 'video/webm', mov: 'video/mp4',
+  mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', opus: 'audio/ogg', flac: 'audio/flac', wav: 'audio/wav',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
+async function meta(id, token) {
+  if (META.has(id)) return META.get(id);
+  const r = await fetch('https://www.googleapis.com/drive/v3/files/' + id + '?fields=size,mimeType,name&supportsAllDrives=true', { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) return null;
+  const j = await r.json(); META.set(id, j); return j;
+}
+
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   const m = /\/stream\/([\w-]+)\/([^/]*)$/.exec(u.pathname);
@@ -30,12 +43,26 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const token = await getToken();
     if (!token) return new Response('Inicia sesión otra vez', { status: 401 });
-    const h = { Authorization: 'Bearer ' + token }, range = e.request.headers.get('Range');
-    if (range) h.Range = range;
+    const info = await meta(m[1], token);
+    if (!info) return new Response('No se pudo leer el archivo en Drive', { status: 502 });
+    const total = +info.size, name = decodeURIComponent(m[2]);
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    // Rango pedido por el reproductor (o el archivo completo)
+    let start = 0, end = total - 1, partial = false;
+    const rq = /^bytes=(\d*)-(\d*)$/.exec(e.request.headers.get('Range') || '');
+    if (rq && (rq[1] || rq[2])) {
+      partial = true;
+      if (rq[1]) { start = +rq[1]; if (rq[2]) end = Math.min(+rq[2], total - 1); } else start = Math.max(0, total - +rq[2]);
+      if (start >= total) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${total}` } });
+    }
+    const h = { Authorization: 'Bearer ' + token };
+    if (partial) h.Range = `bytes=${start}-${end}`;
     const r = await fetch('https://www.googleapis.com/drive/v3/files/' + m[1] + '?alt=media&supportsAllDrives=true', { headers: h });
-    const out = new Headers();
-    for (const k of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified']) { const v = r.headers.get(k); if (v) out.set(k, v); }
-    if (!out.has('accept-ranges') && r.ok) out.set('accept-ranges', 'bytes');
+    if (!r.ok) return new Response('Drive respondió ' + r.status, { status: r.status });
+    const out = new Headers({ 'Accept-Ranges': 'bytes', 'Content-Type': EXT_TYPE[ext] || info.mimeType || 'application/octet-stream' });
+    const len = +(r.headers.get('content-length') || 0);
+    if (r.status === 206) { const last = len ? start + len - 1 : end; out.set('Content-Range', `bytes ${start}-${last}/${total}`); out.set('Content-Length', String(last - start + 1)); }
+    else out.set('Content-Length', String(total));
     if (u.searchParams.get('dl') === '1') {
       const name = decodeURIComponent(m[2]);
       out.set('content-disposition', `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`);

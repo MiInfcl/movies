@@ -81,7 +81,8 @@ $('#bLogin').onclick = async () => {
   } catch (e) { $('#eLogin').textContent = e.message; }
 };
 $('#bOut').onclick = () => {
-  if (auth?.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(auth.token, () => {});
+  // Solo se olvida la sesión en este navegador. No se revoca: revocar anula el permiso de toda la app
+  // en la cuenta de Google. Para quitarlo de verdad: myaccount.google.com/permissions
   auth = null; store.del('medios.auth'); caches.delete('medios-auth'); show('login');
 };
 
