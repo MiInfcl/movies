@@ -79,9 +79,11 @@ function procesarVideo(file, out, { calidades = true } = {}) {
     // Misma calidad que el original, si el navegador no lo puede abrir tal cual (mkv, HEVC, AC3...)
     if (!(mp4 && compatible)) {
       if (compatible) {   // solo cambiar de envase, sin recomprimir
-        log('  remux', alto + 'p');
-        run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-map', '0:v:0', ...(aud[0] ? ['-map', '0:a:0'] : []), '-c', 'copy', '-movflags', '+faststart', path.join(out, alto + 'p.mp4')]);
-        man.calidades.push({ alto, file: alto + 'p.mp4' });
+        // El MP4 reemplaza al original (misma calidad: no tiene sentido guardar las dos copias)
+        log('  remux', alto + 'p (reemplaza al original)');
+        const rem = path.join(path.dirname(out), '_remux', path.basename(file)); fs.mkdirSync(path.dirname(rem), { recursive: true });
+        run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-map', '0:v:0', ...(aud[0] ? ['-map', '0:a:0'] : []), '-c', 'copy', '-movflags', '+faststart', '-f', 'mp4', rem]);
+        man.reemplazo = rem;
       } else outs.push(alto);
     }
     for (const a of ALTOS) if (a < alto) outs.push(a);
@@ -96,8 +98,20 @@ function procesarVideo(file, out, { calidades = true } = {}) {
     }
     man.calidades.sort((a, b) => b.alto - a.alto);
   }
-  fs.writeFileSync(path.join(out, 'pistas.json'), JSON.stringify(man, null, 1));
+  const { reemplazo, ...guardar } = man;
+  fs.writeFileSync(path.join(out, 'pistas.json'), JSON.stringify(guardar, null, 1));
   return man;
+}
+// Cambia el contenido del video por el MP4 y luego le cambia la extensión. Primero el contenido (en el mismo archivo,
+// así conserva su id en Drive y el progreso de cada persona) y después el nombre: si algo se corta a medias, queda un
+// .mkv con MP4 adentro, que la próxima vuelta vuelve a procesar sin daño.
+function reemplazarOriginal(R, v, local, byPath) {
+  const nuevo = v.Path.replace(/\.[^.]+$/, '.mp4');
+  if (byPath.has(nuevo)) { log('  ya existe', nuevo, '- se deja el original'); return false; }
+  rcv('copyto', local, R + v.Path, '--ignore-times');
+  rc('moveto', R + v.Path, R + nuevo);
+  log('  original reemplazado ->', nuevo);
+  return true;
 }
 
 // ---------- Pedidos por enlace ----------
@@ -174,6 +188,20 @@ async function calidades(cfg) {
       const subidos = files.filter(f => f.Path.startsWith(aux + '/') && /^Audio - .+\.[a-z0-9]+$/i.test(f.Name) && !AUDIO_WEB.test(f.Name));
       const sinConvertir = subidos.filter(f => !byPath.has(f.Path.replace(/\.[^.]+$/, '.m4a')));
       const necesita = !man || (man.version || 1) < VERSION;
+      const f0 = man && man.fuente, dup = !necesita && quedan() > 40 * 60e3 && f0 && !/\.(mp4|m4v)$/i.test(v.Name) && f0.codec === 'h264' && (!f0.audio || /^(aac|mp3)$/.test(f0.audio)) && byPath.has(`${aux}/${f0.clase}p.mp4`);
+      if (dup) {
+        log('== copia duplicada:', v.Path);
+        const w = fs.mkdtempSync(path.join(TRABAJO, 'd-'));
+        try {
+          const local = path.join(w, v.Name); rcv('copyto', `${R}${aux}/${f0.clase}p.mp4`, local);
+          if (reemplazarOriginal(R, v, local, byPath)) {
+            man.calidades = man.calidades.filter(c => c.alto !== f0.clase);
+            run('rclone', ['rcat', R + aux + '/pistas.json'], { input: JSON.stringify(man, null, 1) });
+            rc('deletefile', `${R}${aux}/${f0.clase}p.mp4`);
+          }
+        } catch (e) { log('  ERROR:', e.message); }
+        finally { fs.rmSync(w, { recursive: true, force: true }); }
+      }
       if (!necesita && !sinConvertir.length) continue;
       if (quedan() < 75 * 60e3) { log('Se acaba el tiempo; sigo en la próxima vuelta.'); return; }
       log('==', v.Path, necesita ? '(calidades)' : '(audios subidos)');
@@ -181,8 +209,9 @@ async function calidades(cfg) {
       try {
         if (necesita) {
           const local = path.join(w, v.Name); rcv('copyto', R + v.Path, local);
-          const out = path.join(w, '_aux'); procesarVideo(local, out);
+          const out = path.join(w, '_aux'), man = procesarVideo(local, out);
           fs.rmSync(local, { force: true });
+          if (man.reemplazo) reemplazarOriginal(R, v, man.reemplazo, byPath);
           rcv('copy', out, R + aux);
         }
         for (const s of sinConvertir) {
