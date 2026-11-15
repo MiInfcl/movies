@@ -1,4 +1,4 @@
-// Reproductor de "Mis medios": controles propios (no los del navegador), cambio de calidad, de audio y de subtítulos.
+// Reproductor de "Butaca": controles propios (no los del navegador), cambio de calidad, de audio y de subtítulos.
 // Uso: Reproductor.abrir({ titulo, sub, sinopsis, fondo, kind: 'video'|'audio'|'image', src, dl, cred,
 //        pistas: async () => ({ calidades: [{alto, label, src}], audios: [{label, src|null}], subs: [{label, src}] }) })
 // Audio: la pista 1 suena desde el propio video; las otras desde un <audio> sincronizado (los navegadores no dejan
@@ -297,7 +297,7 @@ function pintarSubs() {
   [...tt.activeCues].forEach(c => { const sp = document.createElement('span'); try { sp.append(c.getCueAsHTML()); } catch { sp.textContent = c.text; } box.append(sp, document.createElement('br')); });
 }
 
-function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, insertar: ins, embed }) {
+function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, insertar: ins, embed, inicio, progreso }) {
   cerrar();
   const co = cred ? 'use-credentials' : 'anonymous';
   $('.rp-tt h2').textContent = titulo; $('.rp-tt small').textContent = sub || '';
@@ -320,7 +320,12 @@ function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, inse
   on('timeupdate', tick); on('progress', tick); on('durationchange', tick);
   on('waiting', () => el.classList.add('cargando')); on('playing', () => el.classList.remove('cargando')); on('canplay', () => el.classList.remove('cargando'));
   on('volumechange', () => { volIn.value = v.muted ? 0 : v.volume; $('.rp-mute').innerHTML = v.muted || v.volume === 0 ? IC.mute : IC.vol; });
-  on('ended', () => { el.classList.add('ui'); });
+  on('ended', () => { el.classList.add('ui'); guardar(); });
+  // Progreso: se guarda cada 15 s mientras suena, al pausar y al cerrar (y se retoma al volver a abrir)
+  let ultimo = -1;
+  const guardar = () => { if (!progreso || !v || !v.duration || v !== mio) return; const t = Math.floor(v.currentTime); if (Math.abs(t - ultimo) < 3) return; ultimo = t; progreso(t, Math.floor(v.duration)); };
+  if (progreso) { const iv = setInterval(() => { if (v === mio && !v.paused) guardar(); }, 15000); const v0 = mio; cleanup.push(() => { clearInterval(iv); if (v0.duration) { ultimo = -1; v = v0; guardar(); } }); on('pause', guardar); }
+  if (inicio > 5) v.addEventListener('loadedmetadata', () => { if (v === mio && v.duration && inicio < v.duration - 30 && v.currentTime < 1) { v.currentTime = inicio; aviso('Continuando desde ' + hms(inicio)); } }, { once: true });
   on('error', () => {
     if (v !== mio) return;
     // Si esta calidad no se puede reproducir aquí (por ejemplo un .mkv en Safari), se prueba con la siguiente

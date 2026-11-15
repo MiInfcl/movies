@@ -151,3 +151,29 @@ main{padding:20px 20px 60px}
 .total{font-size:.9rem}.total b{font-size:1.4rem;margin-right:4px}
 .cola div{font-size:.84rem;color:var(--mut);padding:3px 0;word-break:break-all}.cola .e{color:var(--bad)}
 .progreso{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}.progreso i{display:block;height:100%;width:0;background:var(--acc);transition:width .2s}
+
+/* Progreso en la carátula */
+.poster .prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.25)}.poster .prog i{display:block;height:100%;background:#e5484d}
+/* Escanear */
+#bEscanear.girando svg{animation:gira 1s linear infinite}@keyframes gira{to{transform:rotate(360deg)}}
+/* Panel de administración */
+#dlg .box.ancho{width:min(920px,100%);max-height:90vh}
+.phead{display:flex;align-items:center;justify-content:space-between}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--mut);padding:9px 12px;font-weight:600;white-space:nowrap}
+.tabs button:hover{background:transparent;color:var(--tx)}.tabs button.on{color:var(--tx);border-bottom-color:var(--acc)}
+#pc{display:flex;flex-direction:column;gap:12px;min-height:200px}
+.barra-sol{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.barra-sol .seg{width:auto}.barra-sol .seg button{flex:none;padding:7px 14px}.cuantas{color:var(--mut);font-size:.82rem}
+.tabla{overflow:auto;max-height:58vh}
+table.sols th{position:sticky;top:0;background:#0b1a3b;text-align:left;padding:0;z-index:1}
+table.sols th button{background:transparent;border:0;color:var(--mut);padding:8px 6px;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+table.sols th button:hover,table.sols th button.on{color:var(--tx);background:transparent}
+table.sols td{vertical-align:middle}table.sols td small{display:block;color:var(--mut);font-size:.74rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.sols img{width:30px;height:45px;border-radius:4px;object-fit:cover;display:block}
+#dlg table.sols td:last-child{text-align:right;white-space:nowrap}#dlg table.sols td.acc button{margin-left:4px}
+.log{max-height:180px;overflow:auto;font:12px/1.6 ui-monospace,Consolas,monospace;color:var(--mut);background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px}.log:empty{display:none}
+/* Plazo de una solicitud */
+.plazo{padding:14px;border-radius:var(--r);background:rgba(61,139,253,.1);border:1px solid rgba(61,139,253,.35);display:flex;flex-direction:column;gap:10px}
+.plazo p{color:var(--tx)!important}
+.cuenta-reg{display:flex;gap:8px}.cuenta-reg span{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:8px;background:rgba(0,0,0,.25);font-size:.72rem;color:var(--mut)}
+.cuenta-reg b{font-size:1.5rem;color:var(--tx);font-variant-numeric:tabular-nums;line-height:1.2}

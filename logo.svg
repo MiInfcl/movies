@@ -1,23 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <defs>
-    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b8cff"/><stop offset="1" stop-color="#0b2a63"/></linearGradient>
-    <linearGradient id="barras" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#7cc4ff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+    <linearGradient id="fondo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1450b8"/><stop offset="1" stop-color="#071d4a"/></linearGradient>
+    <linearGradient id="azul" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d8bfd"/><stop offset="1" stop-color="#1f66e0"/></linearGradient>
   </defs>
   <rect width="120" height="120" rx="28" fill="url(#fondo)"/>
-  <!-- tarjetas apiladas detrás: la biblioteca -->
-  <rect x="28" y="20" width="64" height="46" rx="10" fill="#ffffff" opacity=".18" transform="rotate(-9 60 43)"/>
-  <rect x="28" y="26" width="64" height="46" rx="10" fill="#ffffff" opacity=".3" transform="rotate(6 60 49)"/>
-  <!-- tarjeta del frente: tira de película -->
-  <rect x="22" y="36" width="76" height="58" rx="12" fill="#0d2f73" stroke="#9fd0ff" stroke-width="2.5"/>
-  <g fill="#9fd0ff">
-    <rect x="31" y="42" width="7" height="5" rx="1.5"/><rect x="45" y="42" width="7" height="5" rx="1.5"/><rect x="59" y="42" width="7" height="5" rx="1.5"/><rect x="73" y="42" width="7" height="5" rx="1.5"/><rect x="85" y="42" width="5" height="5" rx="1.5"/>
-    <rect x="31" y="83" width="7" height="5" rx="1.5"/><rect x="45" y="83" width="7" height="5" rx="1.5"/><rect x="59" y="83" width="7" height="5" rx="1.5"/><rect x="73" y="83" width="7" height="5" rx="1.5"/><rect x="85" y="83" width="5" height="5" rx="1.5"/>
-  </g>
-  <!-- ecualizador: el sonido -->
-  <g fill="url(#barras)">
-    <rect x="37" y="62" width="7" height="14" rx="3.5"/>
-    <rect x="49" y="54" width="7" height="22" rx="3.5"/>
-    <rect x="61" y="58" width="7" height="18" rx="3.5"/>
-    <rect x="73" y="51" width="7" height="25" rx="3.5"/>
-  </g>
+  <rect x="1" y="1" width="118" height="118" rx="27" fill="none" stroke="#5ea2ff" stroke-opacity=".35" stroke-width="2"/>
+  <!-- Respaldo de la butaca (tres tablas) -->
+  <path d="M36 66V36a12 12 0 0 1 12-12h24a12 12 0 0 1 12 12v30z" fill="url(#azul)"/>
+  <path d="M51.5 26v40M68.5 26v40" stroke="#0b2a63" stroke-opacity=".45" stroke-width="3"/>
+  <!-- Apoyabrazos -->
+  <rect x="19" y="56" width="17" height="38" rx="6" fill="#f4f8ff"/>
+  <rect x="84" y="56" width="17" height="38" rx="6" fill="#f4f8ff"/>
+  <path d="M22 62h11M87 62h11" stroke="#3d8bfd" stroke-width="3" stroke-linecap="round"/>
+  <!-- Asiento y base -->
+  <rect x="36" y="78" width="48" height="16" rx="3" fill="#f4f8ff"/>
+  <rect x="33" y="64" width="54" height="15" rx="7.5" fill="url(#azul)" stroke="#0b2a63" stroke-opacity=".35" stroke-width="2"/>
 </svg>

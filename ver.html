@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Mis medios</title>
+<title>Butaca</title>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Color+Emoji&display=swap">
 <style>html,body{margin:0;height:100%;background:#03070f;color:#e9eef7;font:15px Inter,system-ui,sans-serif}#err{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:20px}</style>
@@ -12,11 +12,11 @@
 <body>
 <div id="err" hidden></div>
 <script src="config.js"></script>
-<script src="reproductor.js?v=8"></script>
+<script src="reproductor.js?v=9"></script>
 <script>
 // Video insertado en otra página: #v=<id>&f=<firma>&t=<título>. Funciona sin iniciar sesión gracias a la firma del archivo.
 (async () => {
-  const q = new URLSearchParams(location.hash.slice(1)), id = q.get('v'), f = q.get('f'), t = q.get('t') || 'Mis medios';
+  const q = new URLSearchParams(location.hash.slice(1)), id = q.get('v'), f = q.get('f'), t = q.get('t') || 'Butaca';
   const fallo = m => { const e = document.getElementById('err'); e.textContent = m; e.hidden = false; };
   if (!id || !f) return fallo('Enlace incompleto.');
   try {

@@ -1,4 +1,4 @@
-// Sitio de "Mis medios". Todo pasa por el Worker (C.API): sesión, lista de los Drive, catálogo, videos y acciones de admin.
+// Sitio de "Butaca". Todo pasa por el Worker (C.API): sesión, lista de los Drive, catálogo, videos y acciones de admin.
 (() => {
 const C = window.MEDIOS, API = C.API;
 const $ = s => document.querySelector(s);
@@ -101,7 +101,7 @@ async function render(sinCargando) {
         ${f.oculto ? '<span class="tag">Oculto</span>' : ''}
         <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas(p.idiomas.subs))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
         <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Acciones">${ICON.more}</button>` : ''}</div>
-        ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}
+        ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}${f.prog && f.prog.d ? `<span class="prog" title="Visto ${Math.min(100, Math.round(f.prog.t / f.prog.d * 100))} %"><i style="width:${Math.min(100, f.prog.t / f.prog.d * 100)}%"></i></span>` : ''}
       </div><div class="nom" title="${esc(f.nombre)}">${esc(t)}</div></div>`;
   }).join('');
   // Otros archivos
@@ -140,7 +140,9 @@ function abrir(f) {
   const p = f.peli || {};
   Reproductor.abrir({ titulo: tituloDe(f), sub: metaTxt(f), sinopsis: p.sinopsis, fondo: p.fondo, kind: k, src, dl: src + '&dl=1', cred: false,
     insertar: k === 'video' ? location.origin + '/ver.html#v=' + encodeURIComponent(f.id) + '&f=' + encodeURIComponent(f.f) + '&t=' + encodeURIComponent(tituloDe(f)) : null,
-    pistas: k === 'video' ? () => api('/api/pistas?id=' + encodeURIComponent(f.id)) : null });
+    pistas: k === 'video' ? () => api('/api/pistas?id=' + encodeURIComponent(f.id)) : null,
+    inicio: k === 'video' && f.prog && f.prog.t < f.prog.d - 90 ? f.prog.t : 0,
+    progreso: k === 'video' ? (t, d) => { f.prog = { t, d }; api('/api/progreso', { id: f.id, t, d, nombre: f.nombre }).catch(() => {}); } : null });
 }
 $('#grid').addEventListener('click', e => {
   if (e.target.closest('[data-stop]')) return;
@@ -191,10 +193,11 @@ function menuCarpeta(c, anchor) {
 
 // ---------- Ventanas ----------
 const dlg = $('#dlg'), box = dlg.querySelector('.box');
-const cerrarDlg = () => { dlg.classList.remove('on'); box.innerHTML = ''; };
+const cerrarDlg = () => { dlg.classList.remove('on'); box.innerHTML = ''; box.classList.remove('ancho'); };
 dlg.addEventListener('mousedown', e => { if (e.target === dlg) cerrarDlg(); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && dlg.classList.contains('on')) cerrarDlg(); });
 function ventana(html, onOk, okText = 'Aceptar', danger = false, cancel = 'Cancelar') {
+  box.classList.remove('ancho');
   box.innerHTML = html + `<div class="err" id="dlgErr"></div><div class="acts"><button class="sec" type="button" id="dlgNo">${cancel}</button>${onOk ? `<button type="button" id="dlgOk" class="${danger ? 'danger' : ''}">${esc(okText)}</button>` : ''}</div>`;
   dlg.classList.add('on');
   box.querySelector('#dlgNo').onclick = cerrarDlg;
@@ -286,62 +289,166 @@ async function espacioPill() {
     return drives;
   } catch { $('#pctTotal').textContent = 'Espacio'; return null; }
 }
-$('#bEspacio').onclick = async () => {
-  ventana('<h3>Espacio</h3><div id="esp">Cargando…</div>', null, '', false, 'Cerrar');
+// ---------- Panel de administración (pestañas) ----------
+const PESTANAS = [['sol', 'Solicitudes'], ['bib', 'Biblioteca'], ['esp', 'Espacio y Drive'], ['usu', 'Usuarios'], ['cor', 'Correo']];
+function panel(tab = 'sol') {
+  box.classList.add('ancho');
+  box.innerHTML = '<div class="phead"><h3>Panel de administración</h3><button class="ico" type="button" id="pX" title="Cerrar">' + I('<path d="M6 6l12 12M18 6 6 18"/>') + '</button></div>'
+    + '<div class="tabs" id="ptabs">' + PESTANAS.map(([k, t]) => `<button type="button" data-t="${k}" class="${k === tab ? 'on' : ''}">${t}</button>`).join('') + '</div><div id="pc"></div>';
+  dlg.classList.add('on');
+  box.querySelector('#pX').onclick = cerrarDlg;
+  box.querySelector('#ptabs').onclick = e => { const b = e.target.closest('button[data-t]'); if (b) panel(b.dataset.t); };
+  ({ sol: panelSolicitudes, bib: panelBiblioteca, esp: panelEspacio, usu: panelUsuarios, cor: panelCorreo })[tab]($('#pc'));
+}
+$('#bPanel').onclick = () => panel();
+$('#bEspacio').onclick = () => panel('esp');
+
+// Solicitudes: tabla ordenable
+let solOrden = { campo: 'fecha', dir: -1 }, solFiltro = 'pendiente';
+async function panelSolicitudes(el) {
+  el.innerHTML = 'Cargando…';
+  let ls;
+  try { ls = (await api('/api/solicitudes')).solicitudes; } catch (e) { el.textContent = e.message; return; }
+  const CAMPOS = { fecha: ['Antigüedad', s => s.fecha], pop: ['Popularidad', s => s.por.length], alfa: ['Nombre', s => s.titulo.toLowerCase()], año: ['Año', s => s.año || 0], estado: ['Estado', s => s.estado] };
+  const pintar = () => {
+    const vis = ls.filter(s => solFiltro === 'todas' || s.estado === solFiltro);
+    const [, val] = CAMPOS[solOrden.campo];
+    vis.sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * solOrden.dir; });
+    const th = k => `<th><button type="button" data-o="${k}" class="${solOrden.campo === k ? 'on' : ''}">${CAMPOS[k][0]}${solOrden.campo === k ? (solOrden.dir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`;
+    el.innerHTML = `<div class="barra-sol"><div class="seg" id="sf">${['pendiente', 'agregada', 'todas'].map(f => `<button type="button" data-f="${f}" class="${solFiltro === f ? 'on' : ''}">${f === 'pendiente' ? 'Pendientes' : f === 'agregada' ? 'Agregadas' : 'Todas'}</button>`).join('')}</div><span class="cuantas">${vis.length} de ${ls.length}</span></div>`
+      + (vis.length ? `<div class="tabla"><table class="sols"><thead><tr><th></th>${th('alfa')}${th('año')}${th('pop')}${th('fecha')}${th('estado')}<th></th></tr></thead><tbody>`
+      + vis.map(s => `<tr><td>${s.poster ? `<img src="${esc(s.poster)}" alt="" loading="lazy">` : ''}</td><td><a href="https://www.imdb.com/title/${esc(s.id)}/" target="_blank" rel="noopener">${esc(s.titulo)}</a><small>${esc(s.por.join(', '))}</small></td><td>${s.año || ''}</td><td>${s.por.length}</td><td title="${esc(new Date(s.fecha).toLocaleString('es'))}">${hace(s.fecha)}</td><td><span class="est ${s.estado === 'agregada' ? 'ok' : ''}">${s.estado === 'agregada' ? 'Agregada' : 'Pendiente'}</span></td>`
+        + `<td class="acc"><button type="button" class="sec" data-e="${esc(s.id)}" data-v="${s.estado === 'agregada' ? 'pendiente' : 'agregada'}">${s.estado === 'agregada' ? 'Reabrir' : 'Lista'}</button><button type="button" class="sec" data-q="${esc(s.id)}">Borrar</button></td></tr>`).join('') + '</tbody></table></div>'
+      : '<p>No hay solicitudes aquí.</p>');
+  };
+  el.onclick = async e => {
+    const o = e.target.closest('button[data-o]'); if (o) { solOrden = { campo: o.dataset.o, dir: solOrden.campo === o.dataset.o ? -solOrden.dir : (o.dataset.o === 'alfa' ? 1 : -1) }; return pintar(); }
+    const f = e.target.closest('button[data-f]'); if (f) { solFiltro = f.dataset.f; return pintar(); }
+    const b = e.target.closest('button[data-e],button[data-q]'); if (!b) return;
+    try { const r = b.dataset.e ? await api('/api/solicitudes', { op: 'estado', id: b.dataset.e, estado: b.dataset.v }) : await api('/api/solicitudes', { op: 'quitar', id: b.dataset.q }); msg(r.mensaje); ls = (await api('/api/solicitudes')).solicitudes; pintar(); contarSols(); } catch (x) { msg(x.message, true); }
+  };
+  pintar();
+}
+function hace(iso) {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  return s < 3600 ? Math.max(1, Math.round(s / 60)) + ' min' : s < 86400 ? Math.round(s / 3600) + ' h' : Math.round(s / 86400) + ' d';
+}
+
+// Biblioteca: escanear
+function panelBiblioteca(el) {
+  el.innerHTML = `<p>«Escanear» vuelve a leer todos los Drive: agrega las películas nuevas, busca sus carátulas y sinopsis, actualiza idiomas de audio y subtítulos, y marca como lista cada solicitud que ya llegó (avisando por correo a quien la pidió).</p>
+    <p>Las pistas de audio, subtítulos y calidades de una película nueva las prepara el robot en la nube; revisa cada 15 minutos.</p>
+    <div><button type="button" id="pEsc">Escanear ahora</button></div><div id="escLog" class="log"></div>
+    <p style="margin-top:6px">El catálogo (títulos, carátulas y sinopsis) está en <b>catalogo.json</b>, en la carpeta «Mis medios» del Drive principal: si una película salió mal, cambia su "titulo" ahí y escanea.</p>`;
+  $('#pEsc').onclick = () => escanear($('#escLog'), $('#pEsc'));
+}
+async function escanear(log, btn) {
+  const linea = t => { if (log) { const d = document.createElement('div'); d.textContent = t; log.append(d); log.scrollTop = log.scrollHeight; } };
+  const bt = [btn, $('#bEscanear')].filter(Boolean); bt.forEach(b => { b.disabled = true; b.classList.add('girando'); });
+  try {
+    linea('Leyendo los Drive…');
+    const { rutas } = await api('/api/escanear', {});
+    for (const r of rutas) {
+      linea('Carpeta ' + (r || 'Inicio') + '…');
+      for (let n = 0; n < 30; n++) { const { faltan } = await api('/api/completar', { ruta: r }); if (!faltan) break; }
+    }
+    linea('Revisando solicitudes…');
+    const fin = await api('/api/escanear', { fin: true });
+    const t = 'Escaneo listo.' + (fin.llegaron.length ? ` Llegaron: ${fin.llegaron.join(', ')}.` + (fin.correos ? ` Se enviaron ${fin.correos} aviso${fin.correos > 1 ? 's' : ''} por correo.` : '') + (fin.sinCorreo ? ` ${fin.sinCorreo} persona(s) sin correo para avisar.` : '') : ' No había solicitudes por cerrar.');
+    linea(t); msg(t); contarSols(); render(true);
+  } catch (e) { linea('Error: ' + e.message); msg(e.message, true); }
+  bt.forEach(b => { b.disabled = false; b.classList.remove('girando'); });
+}
+$('#bEscanear').onclick = () => escanear(null, null);
+
+// Espacio y Drive
+async function panelEspacio(el) {
+  el.innerHTML = 'Cargando…';
   try {
     const d = await api('/api/espacio'), ok = d.drives.filter(x => x.limite);
     const uso = ok.reduce((a, x) => a + x.usado, 0), lim = ok.reduce((a, x) => a + x.limite, 0), mio = d.drives.find(x => x.mio);
-    $('#esp').innerHTML = `<div class="total"><b>${fpct(pct(uso, lim))}</b> del espacio total usado</div><p>${tam(uso)} de ${tam(lim)} entre ${d.drives.length} Drive${d.drives.length === 1 ? '' : 's'}.</p>`
+    el.innerHTML = `<div class="total"><b>${fpct(pct(uso, lim))}</b> del espacio total usado</div><p>${tam(uso)} de ${tam(lim)} entre ${d.drives.length} Drive${d.drives.length === 1 ? '' : 's'}.</p>`
       + (mio && mio.limite ? `<p style="margin-top:8px">Tu Drive: <b style="color:var(--tx)">${fpct(pct(mio.usado, mio.limite))}</b> usado (${tam(mio.usado)} de ${tam(mio.limite)}).</p>` : '')
       + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + d.drives.map(x => x.error
         ? `<div class="disco"><div class="t"><span>${esc(x.admin)}${x.mio ? ' (tú)' : ''}</span><small>${esc(x.email || '')}</small></div><p class="err" style="color:var(--bad)">${esc(x.error)}</p></div>`
-        : `<div class="disco"><div class="t"><span>${esc(x.admin)}${x.mio ? ' (tú)' : ''}${x.principal ? ' · principal' : ''}</span><small>${esc(x.email || '')}</small></div><div class="medidor"><i style="width:${Math.min(100, pct(x.usado, x.limite))}%"></i></div><div class="t"><small>${tam(x.usado)} de ${tam(x.limite)} · ${fpct(pct(x.usado, x.limite))}</small><small>Mis medios y otros: ${tam(x.usadoDrive)} en Drive</small></div></div>`).join('') + '</div>'
-      + `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${d.tengoDrive ? '<button type="button" class="sec" id="recon">Reconectar mi Drive</button>' + (mio && !mio.principal ? '<button type="button" class="sec" id="descon">Quitar mi Drive</button>' : '') : '<button type="button" id="recon">Conectar mi Google Drive</button>'}</div>`
-      + (d.tengoDrive ? '' : '<p style="margin-top:4px">Cada admin puede sumar su propio Drive. Se crea en él una carpeta «Mis medios» y lo que haya ahí se ve junto con lo demás.</p>');
+        : `<div class="disco"><div class="t"><span>${esc(x.admin)}${x.mio ? ' (tú)' : ''}${x.principal ? ' · principal' : ''}</span><small>${esc(x.email || '')}</small></div><div class="medidor"><i style="width:${Math.min(100, pct(x.usado, x.limite))}%"></i></div><div class="t"><small>${tam(x.usado)} de ${tam(x.limite)} · ${fpct(pct(x.usado, x.limite))}</small><small>Solo Drive: ${tam(x.usadoDrive)}</small></div></div>`).join('') + '</div>'
+      + `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${d.tengoDrive ? '<button type="button" class="sec" id="recon">Reconectar mi Drive</button>' + (mio && !mio.principal ? '<button type="button" class="sec" id="descon">Quitar mi Drive</button>' : '') : '<button type="button" id="recon">Conectar mi Google Drive</button>'}</div>`
+      + (d.tengoDrive ? '' : '<p style="margin-top:6px">Cada admin puede sumar su propio Drive. Se crea en él una carpeta «Mis medios» y lo que haya ahí se ve junto con lo demás.</p>');
     $('#recon').onclick = () => { location.href = API + '/api/drive/conectar'; };
-    if ($('#descon')) $('#descon').onclick = () => ventana('<h3>Quitar mi Drive</h3><p>Lo que está en tu Drive dejará de verse en el sitio, pero no se borra: queda en tu carpeta «Mis medios».</p>', async () => listo(await api('/api/drive/desconectar', {})), 'Quitar', true);
-  } catch (e) { $('#esp').textContent = e.message; }
-};
+    if ($('#descon')) $('#descon').onclick = async () => { if (!confirm('Lo que está en tu Drive dejará de verse en el sitio (no se borra). ¿Quitarlo?')) return; try { msg((await api('/api/drive/desconectar', {})).mensaje); panel('esp'); } catch (x) { msg(x.message, true); } };
+  } catch (e) { el.textContent = e.message; }
+}
 
-// Usuarios (admins)
-$('#bUsuarios').onclick = async () => {
-  box.innerHTML = '<h3>Usuarios</h3><p>Cualquiera con una cuenta de Google puede entrar y ver la biblioteca. Aquí puedes hacer admin a alguien o crear usuarios con contraseña.</p><table id="ut"><tr><td>Cargando…</td></tr></table>'
+// Usuarios
+async function panelUsuarios(el) {
+  el.innerHTML = '<p>Cualquiera con una cuenta de Google puede entrar y ver la biblioteca. Aquí puedes hacer admin a alguien o crear usuarios con contraseña.</p><div class="tabla"><table id="ut"><tr><td>Cargando…</td></tr></table></div>'
     + '<h3 style="margin-top:4px">Crear o cambiar</h3><input class="t" id="un" placeholder="Usuario, o correo de Google" autocomplete="off" autocapitalize="none">'
     + '<input class="t" id="uc" type="password" placeholder="Contraseña (mínimo 8; vacía si es un correo de Google)" autocomplete="new-password">'
-    + '<select class="t" id="ur"><option value="usuario">Usuario: ve, reproduce y descarga</option><option value="admin">Admin: además agrega, organiza y conecta su Drive</option></select>'
-    + '<div class="err" id="uerr"></div><div class="acts"><button class="sec" type="button" id="uno">Cerrar</button><button type="button" id="uok">Guardar</button></div>';
-  dlg.classList.add('on'); box.querySelector('#uno').onclick = cerrarDlg;
-  const err = box.querySelector('#uerr');
+    + '<select class="t" id="ur"><option value="usuario">Usuario: ve, reproduce, descarga y solicita</option><option value="admin">Admin: además agrega, organiza y conecta su Drive</option></select>'
+    + '<div class="err" id="uerr"></div><div class="acts"><button type="button" id="uok">Guardar</button></div>';
+  const err = el.querySelector('#uerr');
   const cargar = async () => {
     const { usuarios } = await api('/api/usuarios');
     usuarios.sort((a, b) => (a.rol === b.rol ? a.nombre.localeCompare(b.nombre) : a.rol === 'admin' ? -1 : 1));
-    box.querySelector('#ut').innerHTML = usuarios.map(u => `<tr><td>${esc(u.nombre)}${u.google ? ' <small>Google</small>' : ''}</td><td>${u.rol}</td><td>${u.nombre === yo.nombre ? '' : `<button class="sec" type="button" data-e="${esc(u.nombre)}" data-r="${u.rol}">Editar</button> <button class="danger" type="button" data-b="${esc(u.nombre)}">Borrar</button>`}</td></tr>`).join('');
+    el.querySelector('#ut').innerHTML = usuarios.map(u => `<tr><td>${esc(u.nombre)}${u.google ? ' <small>Google</small>' : ''}</td><td>${u.rol}</td><td>${u.nombre === yo.nombre ? '' : `<button class="sec" type="button" data-e="${esc(u.nombre)}" data-r="${u.rol}">Editar</button> <button class="danger" type="button" data-b="${esc(u.nombre)}">Borrar</button>`}</td></tr>`).join('');
   };
-  box.querySelector('#ut').onclick = async e => {
-    const ed = e.target.closest('button[data-e]'); if (ed) { box.querySelector('#un').value = ed.dataset.e; box.querySelector('#ur').value = ed.dataset.r; box.querySelector('#uc').focus(); return; }
+  el.querySelector('#ut').onclick = async e => {
+    const ed = e.target.closest('button[data-e]'); if (ed) { el.querySelector('#un').value = ed.dataset.e; el.querySelector('#ur').value = ed.dataset.r; el.querySelector('#uc').focus(); return; }
     const b = e.target.closest('button[data-b]'); if (!b) return;
     if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro?'; return; }
     try { await api('/api/usuarios', { op: 'borrar', nombre: b.dataset.b }); await cargar(); } catch (x) { err.textContent = x.message; }
   };
-  box.querySelector('#uok').onclick = async () => {
+  el.querySelector('#uok').onclick = async () => {
     err.className = 'err'; err.textContent = '';
     try {
-      await api('/api/usuarios', { op: 'guardar', nombre: box.querySelector('#un').value.trim(), clave: box.querySelector('#uc').value, rol: box.querySelector('#ur').value });
-      box.querySelector('#uc').value = ''; err.className = 'ok'; err.textContent = 'Guardado.'; await cargar();
+      await api('/api/usuarios', { op: 'guardar', nombre: el.querySelector('#un').value.trim(), clave: el.querySelector('#uc').value, rol: el.querySelector('#ur').value });
+      el.querySelector('#uc').value = ''; err.className = 'ok'; err.textContent = 'Guardado.'; await cargar();
     } catch (x) { err.textContent = x.message; }
   };
   try { await cargar(); } catch (x) { err.textContent = x.message; }
-};
+}
 
-// Solicitar películas: búsqueda en IMDb (o un enlace de IMDb)
+// Correo: los avisos salen desde un Gmail conectado; las respuestas van a movies@emailrouting.xyz
+async function panelCorreo(el) {
+  el.innerHTML = 'Cargando…';
+  try {
+    const { gmail } = await api('/api/config');
+    el.innerHTML = `<p>Cuando llega una película que alguien solicitó, Butaca le avisa por correo. Los correos salen desde un Gmail que conectas aquí, y las respuestas llegan a <b>movies@emailrouting.xyz</b>.</p>
+      <div class="disco"><div class="t"><span>Gmail para los avisos</span><small>${gmail ? esc(gmail) : 'sin conectar'}</small></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" id="gcon">${gmail ? 'Cambiar o reconectar' : 'Conectar Gmail'}</button>${gmail ? '<button type="button" class="sec" id="gprueba">Enviarme un correo de prueba</button>' : ''}</div>
+      <p>Solo reciben aviso quienes entraron con Google (los usuarios con contraseña no tienen correo).</p>`;
+    $('#gcon').onclick = () => { location.href = API + '/api/gmail/conectar'; };
+    if ($('#gprueba')) $('#gprueba').onclick = async () => { try { msg((await api('/api/gmail/prueba', {})).mensaje); } catch (x) { msg(x.message, true); } };
+  } catch (e) { el.textContent = e.message; }
+}
+
+// ---------- Solicitar películas: búsqueda en IMDb (o un enlace de IMDb) ----------
+function proximoSabado() {
+  const n = new Date(), d = new Date(n); d.setHours(13, 0, 0, 0);
+  d.setDate(n.getDate() + ((6 - n.getDay() + 7) % 7)); if (d <= n) d.setDate(d.getDate() + 7);
+  return d;
+}
+function cuentaRegresiva(el) {
+  const meta = proximoSabado();
+  const tic = () => {
+    if (!el.isConnected) return clearInterval(iv);
+    let s = Math.max(0, Math.floor((meta - Date.now()) / 1000));
+    const d = Math.floor(s / 86400); s %= 86400; const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
+    el.innerHTML = [[d, 'días'], [h, 'horas'], [m, 'min'], [s, 'seg']].map(([v, l]) => `<span><b>${String(v).padStart(2, '0')}</b>${l}</span>`).join('');
+  };
+  const iv = setInterval(tic, 1000); tic();
+}
+const AVISO_PLAZO = () => `<div class="plazo"><p>Lo más probable es que esté lista <b>para el próximo fin de semana</b>: el sábado ${proximoSabado().toLocaleDateString('es', { day: 'numeric', month: 'long' })} a las 13:00.</p><div class="cuenta-reg"></div><p>¿La necesitas antes? Escríbeme a <a href="mailto:movies@emailrouting.xyz">movies@emailrouting.xyz</a>. Cuando llegue te aviso por correo.</p></div>`;
 $('#bPedir').onclick = () => {
   let elegido = null, t = 0;
   ventana(`<h3>Solicitar una película</h3><p>Busca por nombre o pega el enlace de IMDb.</p>
     <input class="t" id="sq" placeholder="Ej.: Interestelar, o https://www.imdb.com/title/tt0816692/" autocomplete="off">
-    <div class="sug" id="sug"></div><h3 style="margin-top:6px;font-size:.95rem">${esAdmin() ? 'Solicitudes de todos' : 'Tus solicitudes'}</h3><div id="sols">Cargando…</div>`, async () => {
+    <div class="sug" id="sug"></div><div id="hecho"></div><h3 style="margin-top:6px;font-size:.95rem">Tus solicitudes</h3><div id="sols">Cargando…</div>`, async () => {
     if (!elegido) throw new Error('Elige una película de la lista.');
-    const r = await api('/api/solicitudes', { op: 'pedir', id: elegido.id }); msg(r.mensaje); elegido = null;
-    $('#sq').value = ''; $('#sug').innerHTML = ''; $('#dlgOk').disabled = false; cargarSols();
+    const r = await api('/api/solicitudes', { op: 'pedir', id: elegido.id }); msg(r.mensaje);
+    $('#hecho').innerHTML = `<p class="ok" style="margin-bottom:6px">${esc(r.mensaje)}</p>` + (/ya está/.test(r.mensaje) ? '' : AVISO_PLAZO());
+    if ($('#hecho .cuenta-reg')) cuentaRegresiva($('#hecho .cuenta-reg'));
+    elegido = null; $('#sq').value = ''; $('#sug').innerHTML = ''; $('#dlgOk').disabled = false; cargarSols(); contarSols();
   }, 'Solicitar', false, 'Cerrar');
   const sug = $('#sug'); let res = [];
   const pintar = () => { sug.innerHTML = res.map((r, i) => `<button type="button" data-i="${i}" class="${elegido && elegido.id === r.id ? 'on' : ''}">${r.poster ? `<img src="${esc(r.poster)}" alt="" loading="lazy">` : '<span class="np"></span>'}<span>${esc(r.titulo)}${r.año ? ' (' + r.año + ')' : ''}<small>${esc(r.tipo)}${r.actores ? ' · ' + esc(r.actores) : ''}</small></span></button>`).join('') || (($('#sq').value.trim().length > 1) ? '<p>Sin resultados.</p>' : ''); };
@@ -355,17 +462,18 @@ $('#bPedir').onclick = () => {
 async function cargarSols() {
   const el = $('#sols'); if (!el) return;
   try {
-    const { solicitudes } = await api('/api/solicitudes');
-    el.innerHTML = solicitudes.length ? solicitudes.map(s => `<div class="sol">${s.poster ? `<img src="${esc(s.poster)}" alt="" loading="lazy">` : '<span class="np"></span>'}<div class="tx"><a href="https://www.imdb.com/title/${esc(s.id)}/" target="_blank" rel="noopener">${esc(s.titulo)}${s.año ? ' (' + s.año + ')' : ''}</a>${esAdmin() ? `<small>Pedida por ${esc(s.por.join(', '))}</small>` : ''}</div><span class="est ${s.estado === 'agregada' ? 'ok' : ''}">${s.estado === 'agregada' ? 'Agregada' : 'Pendiente'}</span>${esAdmin() ? `<button type="button" class="sec" data-e="${esc(s.id)}" data-v="${s.estado === 'agregada' ? 'pendiente' : 'agregada'}">${s.estado === 'agregada' ? 'Reabrir' : 'Lista'}</button>` : ''}<button type="button" class="sec" data-q="${esc(s.id)}">Quitar</button></div>`).join('') : '<p>Ninguna todavía.</p>';
+    let { solicitudes } = await api('/api/solicitudes');
+    solicitudes = solicitudes.filter(s => s.por.includes(yo.nombre));
+    el.innerHTML = solicitudes.length ? solicitudes.map(s => `<div class="sol">${s.poster ? `<img src="${esc(s.poster)}" alt="" loading="lazy">` : '<span class="np"></span>'}<div class="tx"><a href="https://www.imdb.com/title/${esc(s.id)}/" target="_blank" rel="noopener">${esc(s.titulo)}${s.año ? ' (' + s.año + ')' : ''}</a><small>${s.estado === 'agregada' ? 'Ya está en Butaca' : 'Probablemente para el sábado ' + proximoSabado().toLocaleDateString('es', { day: 'numeric', month: 'long' }) + ', 13:00'}</small></div><span class="est ${s.estado === 'agregada' ? 'ok' : ''}">${s.estado === 'agregada' ? 'Llegó' : 'Pendiente'}</span><button type="button" class="sec" data-q="${esc(s.id)}">Quitar</button></div>`).join('') : '<p>Ninguna todavía.</p>';
     el.onclick = async e => {
-      const b = e.target.closest('button[data-e],button[data-q]'); if (!b) return;
-      try { const r = b.dataset.e ? await api('/api/solicitudes', { op: 'estado', id: b.dataset.e, estado: b.dataset.v }) : await api('/api/solicitudes', { op: 'quitar', id: b.dataset.q }); msg(r.mensaje); cargarSols(); contarSols(); } catch (x) { msg(x.message, true); }
+      const b = e.target.closest('button[data-q]'); if (!b) return;
+      try { msg((await api('/api/solicitudes', { op: 'quitar', id: b.dataset.q })).mensaje); cargarSols(); contarSols(); } catch (x) { msg(x.message, true); }
     };
   } catch (x) { el.textContent = x.message; }
 }
 async function contarSols() {
   if (!esAdmin()) return;
-  try { const { pendientes } = await api('/api/solicitudes'); $('#nPedir').textContent = pendientes; $('#nPedir').classList.toggle('hidden', !pendientes); } catch {}
+  try { const { pendientes } = await api('/api/solicitudes'); $('#nPanel').textContent = pendientes; $('#nPanel').classList.toggle('hidden', !pendientes); } catch {}
 }
 
 // Menú de la cuenta
