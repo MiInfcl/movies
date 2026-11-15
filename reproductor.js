@@ -25,7 +25,7 @@ const css = `
 #rp .rp-tt{flex:1;min-width:0}#rp .rp-tt h2{margin:0;font-size:1rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rp .rp-tt small{color:#93a4c2;font-size:.8rem}
 #rp .rp-x{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}#rp .rp-x:hover{background:rgba(255,255,255,.18)}
 #rp .rp-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000 center/cover no-repeat}
-#rp .rp-stage:before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+#rp .rp-stage:before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.86);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
 #rp video,#rp .rp-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:transparent;outline:none}
 #rp .rp-subs{position:absolute;left:5%;right:5%;bottom:7%;text-align:center;pointer-events:none;transition:bottom .2s}
 #rp .rp-subs span{display:inline;padding:.12em .45em;background:rgba(0,0,0,.62);border-radius:4px;font-size:clamp(16px,2.6vw,34px);line-height:1.5;font-weight:500;text-shadow:0 1px 2px #000;white-space:pre-line;box-decoration-break:clone;-webkit-box-decoration-break:clone}

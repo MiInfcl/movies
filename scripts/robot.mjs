@@ -38,7 +38,7 @@ async function configurar() {
   const r = await fetch(API + '/robot/drives', { headers: { Authorization: 'Bearer ' + process.env.ROBOT_KEY } });
   if (!r.ok) throw new Error('El Worker no entregó las llaves: ' + r.status);
   const j = await r.json();
-  const conf = j.drives.filter(d => d.refresh).map(d => `[d_${d.k}]\ntype = drive\nclient_id = ${j.client_id}\nclient_secret = ${j.client_secret}\nscope = drive\nroot_folder_id = ${d.root}\ntoken = ${JSON.stringify({ access_token: '', token_type: 'Bearer', refresh_token: d.refresh, expiry: '2000-01-01T00:00:00Z' })}\n`).join('\n');
+  const conf = j.drives.filter(d => d.refresh).map(d => `[d_${d.k}]\ntype = drive\nclient_id = ${j.client_id}\nclient_secret = ${j.client_secret}\nscope = drive\nroot_folder_id = ${d.root}\ntoken = ${JSON.stringify({ access_token: 'x', token_type: 'Bearer', refresh_token: d.refresh, expiry: '2000-01-01T00:00:00Z' })}\n`).join('\n');
   const dir = path.join(os.homedir(), '.config', 'rclone'); fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'rclone.conf'), conf, { mode: 0o600 });
   return j;
