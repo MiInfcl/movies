@@ -10,7 +10,7 @@
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 
@@ -31,11 +31,11 @@
 <form class="login hidden" id="vReg" autocomplete="on">
   <div class="marca"><img src="logo.svg" alt="">Crear cuenta</div>
   <p>Con tu cuenta puedes ver la biblioteca, seguir donde quedaste y pedir películas.</p>
-  <div><label class="l" for="rn">Nombre</label><input class="t" id="rn" autocomplete="name" maxlength="60" required></div>
-  <div><label class="l" for="rc">Correo</label><input class="t" id="rc" type="email" autocomplete="email" autocapitalize="none" maxlength="80" required></div>
-  <div><label class="l" for="rp">Contraseña</label><input class="t" id="rp" type="password" autocomplete="new-password" maxlength="128" required></div>
+  <div><label class="l" for="regN">Nombre</label><input class="t" id="regN" autocomplete="name" maxlength="60" required></div>
+  <div><label class="l" for="regC">Correo</label><input class="t" id="regC" type="email" autocomplete="email" autocapitalize="none" maxlength="80" required></div>
+  <div><label class="l" for="regP">Contraseña</label><input class="t" id="regP" type="password" autocomplete="new-password" maxlength="128" required></div>
   <ul class="reglas" id="reglas"><li data-r="largo">Al menos 8 caracteres</li><li data-r="may">Una mayúscula</li><li data-r="min">Una minúscula</li><li data-r="num">Un número</li><li data-r="esp">Un carácter especial (!, #, %, …)</li></ul>
-  <div><label class="l" for="rp2">Repite la contraseña</label><input class="t" id="rp2" type="password" autocomplete="new-password" maxlength="128" required></div>
+  <div><label class="l" for="regP2">Repite la contraseña</label><input class="t" id="regP2" type="password" autocomplete="new-password" maxlength="128" required></div>
   <input class="trampa" id="rweb" tabindex="-1" autocomplete="off" aria-hidden="true">
   <button type="submit" id="bReg">Crear cuenta</button>
   <div class="lerr" id="eReg"></div>
@@ -73,7 +73,7 @@
 
 <script src="config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="reproductor.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="reproductor.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

@@ -37,18 +37,18 @@ const esAdmin = () => yo && yo.rol === 'admin';
 function show(v) { $('#vLogin').classList.toggle('hidden', v !== 'login'); $('#vReg').classList.toggle('hidden', v !== 'reg'); $('#vApp').classList.toggle('hidden', v !== 'app'); }
 // Registro con nombre, correo y contraseña segura
 const REGLAS = { largo: c => c.length >= 8, may: c => /[A-Z]/.test(c), min: c => /[a-z]/.test(c), num: c => /\d/.test(c), esp: c => /[^A-Za-z0-9]/.test(c) };
-$('#aReg').onclick = e => { e.preventDefault(); $('#eReg').textContent = ''; show('reg'); $('#rn').focus(); };
+$('#aReg').onclick = e => { e.preventDefault(); $('#eReg').textContent = ''; show('reg'); $('#regN').focus(); };
 $('#aEnt').onclick = e => { e.preventDefault(); show('login'); };
-$('#rp').addEventListener('input', () => { const c = $('#rp').value; document.querySelectorAll('#reglas li').forEach(li => li.classList.toggle('ok', REGLAS[li.dataset.r](c))); });
+$('#regP').addEventListener('input', () => { const c = $('#regP').value; document.querySelectorAll('#reglas li').forEach(li => li.classList.toggle('ok', REGLAS[li.dataset.r](c))); });
 $('#vReg').addEventListener('submit', async e => {
   e.preventDefault(); const err = $('#eReg'); err.textContent = '';
-  const clave = $('#rp').value;
+  const clave = $('#regP').value;
   if (!Object.values(REGLAS).every(f => f(clave))) return err.textContent = 'La contraseña no cumple todas las reglas.';
-  if (clave !== $('#rp2').value) return err.textContent = 'Las contraseñas no coinciden.';
+  if (clave !== $('#regP2').value) return err.textContent = 'Las contraseñas no coinciden.';
   $('#bReg').disabled = true;
   try {
-    yo = (await api('/api/registro', { nombre: $('#rn').value.trim(), correo: $('#rc').value.trim(), clave, web: $('#rweb').value })).usuario;
-    $('#rp').value = $('#rp2').value = ''; start();
+    yo = (await api('/api/registro', { nombre: $('#regN').value.trim(), correo: $('#regC').value.trim(), clave, web: $('#rweb').value })).usuario;
+    $('#regP').value = $('#regP2').value = ''; start();
   } catch (x) { err.textContent = x.message; }
   $('#bReg').disabled = false;
 });
