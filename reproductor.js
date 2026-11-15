@@ -103,7 +103,7 @@ const pref = { get(k, d) { try { const v = localStorage.getItem('rp-' + k); retu
 
 // Bandera de un idioma, por su nombre («Español latino») o código («spa»)
 const FLAGS = [[/latin|lat\b|mex|es-?419|es-?mx/i, 'MX'], [/castellano|españa|es-?es/i, 'ES'], [/^(es|spa)$|espa[ñn]ol|spanish/i, 'ES'], [/brasil|pt-?br/i, 'BR'], [/^(pt|por)$|portugu/i, 'PT'],
-  [/brit|uk\b|en-?gb/i, 'GB'], [/^(en|eng)$|ingl[eé]s|english/i, 'US'], [/^(fr|fra|fre)$|franc[eé]s|french/i, 'FR'], [/^(it|ita)$|italian/i, 'IT'], [/^(de|deu|ger)$|alem[aá]n|german/i, 'DE'],
+  [/brit|uk\b|en-?gb/i, 'GB'], [/^(en|eng)$|ingl[eéè]s|english/i, 'US'], [/^(fr|fra|fre)$|franc[eé]s|french/i, 'FR'], [/^(it|ita)$|italian/i, 'IT'], [/^(de|deu|ger)$|alem[aá]n|german/i, 'DE'],
   [/^(ja|jpn)$|japon[eé]s|japanese/i, 'JP'], [/^(ko|kor)$|coreano|korean/i, 'KR'], [/^(zh|chi|zho)$|chino|chinese|mandar/i, 'CN'], [/^(ru|rus)$|ruso|russian/i, 'RU'], [/^(hi|hin)$|hindi/i, 'IN'],
   [/^(ca|cat)$|catal/i, 'ES'], [/^(nl|dut|nld)$|holand|dutch/i, 'NL'], [/^(sv|swe)$|sueco|swedish/i, 'SE'], [/^(pl|pol)$|polaco|polish/i, 'PL'], [/^(tr|tur)$|turco|turkish/i, 'TR'], [/^(ar|ara)$|[aá]rabe|arabic/i, 'SA']];
 function bandera(l) {
@@ -111,7 +111,9 @@ function bandera(l) {
   const hit = FLAGS.find(([re]) => re.test(x)); if (!hit) return '';
   return [...hit[1]].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
 }
-const conBandera = l => (bandera(l) ? bandera(l) + '  ' : '') + l;
+// x: texto, o pista { label, lang } / { l, c } del catálogo
+const banderaDe = x => typeof x === 'string' ? bandera(x) : bandera(x.lang || x.c) || bandera(x.label || x.l);
+const conBandera = x => { const b = banderaDe(x), l = typeof x === 'string' ? x : (x.label || x.l); return (b ? b + '  ' : '') + l; };
 let v = null, st0 = null, cleanup = [];
 function cerrar() {
   cleanup.forEach(f => { try { f(); } catch {} }); cleanup = [];
@@ -196,17 +198,17 @@ $('.rp-stage').addEventListener('contextmenu', e => {
   if (!v || e.target.closest('.rp-menu,.rp-emb')) return;
   e.preventDefault(); menu.classList.remove('on');
   const btn = (ico, txt, fn, cls = '') => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.innerHTML = ico + '<span>' + esc(txt) + '</span>'; b.onclick = ev => { ev.stopPropagation(); cerrarCtx(); fn(); }; return b; };
-  const fl = l => `<span class="fl">${bandera(l) || '·'}</span>`;
+  const fl = x => `<span class="fl">${banderaDe(x) || '·'}</span>`;
   ctx.innerHTML = '';
   if (document.pictureInPictureEnabled) ctx.append(btn(IC.pip, document.pictureInPictureElement ? 'Salir de pantalla en pantalla' : 'Pantalla en pantalla', pip));
   if (st0.insertar) ctx.append(btn(IC.code, 'Insertar (código HTML)', insertar));
   if (st0.audios.length) {
     ctx.append(Object.assign(document.createElement('hr')), Object.assign(document.createElement('div'), { className: 't', textContent: 'Idiomas de audio' }));
-    st0.audios.forEach((a, i) => ctx.append(btn(fl(a.label), a.label, () => setAudio(i), i === st0.a ? 'on' : '')));
+    st0.audios.forEach((a, i) => ctx.append(btn(fl(a), a.label, () => setAudio(i), i === st0.a ? 'on' : '')));
   }
   if (st0.subs.length) {
     ctx.append(Object.assign(document.createElement('div'), { className: 't', textContent: 'Subtítulos' }));
-    st0.subs.forEach((s2, i) => ctx.append(btn(fl(s2.label), s2.label, () => setSub(i), i === st0.s ? 'on' : '')));
+    st0.subs.forEach((s2, i) => ctx.append(btn(fl(s2), s2.label, () => setSub(i), i === st0.s ? 'on' : '')));
   }
   if (st0.dl) { ctx.append(document.createElement('hr')); ctx.append(btn(IC.dl, 'Descargar', () => { const a = document.createElement('a'); a.href = st0.dl; a.download = ''; a.click(); })); }
   ctx.classList.add('on');
@@ -231,8 +233,8 @@ function opcion(label, val, fn) { const b = document.createElement('button'); b.
 function menuPrincipal() {
   menu.innerHTML = '';
   if (st0.kind === 'video') menu.append(opcion('Calidad', st0.calidades[st0.q].label, () => lista('Calidad', st0.calidades.map(c => c.label), st0.q, setCalidad, st0.calidades.length < 2 ? 'Las otras calidades (720p, 480p…) se están preparando.' : '')));
-  if (st0.audios.length > 1) menu.append(opcion('Audio', conBandera(st0.audios[st0.a].label), () => lista('Audio', st0.audios.map(a => conBandera(a.label)), st0.a, setAudio)));
-  menu.append(opcion('Subtítulos', st0.s < 0 ? 'No' : conBandera(st0.subs[st0.s].label), () => lista('Subtítulos', ['No'].concat(st0.subs.map(s => conBandera(s.label))), st0.s + 1, i => setSub(i - 1))));
+  if (st0.audios.length > 1) menu.append(opcion('Audio', conBandera(st0.audios[st0.a]), () => lista('Audio', st0.audios.map(a => conBandera(a)), st0.a, setAudio)));
+  menu.append(opcion('Subtítulos', st0.s < 0 ? 'No' : conBandera(st0.subs[st0.s]), () => lista('Subtítulos', ['No'].concat(st0.subs.map(s => conBandera(s))), st0.s + 1, i => setSub(i - 1))));
   const vel = [0.5, 0.75, 1, 1.25, 1.5, 2];
   menu.append(opcion('Velocidad', v.playbackRate === 1 ? 'Normal' : v.playbackRate + '×', () => lista('Velocidad', vel.map(x => x === 1 ? 'Normal' : x + '×'), vel.indexOf(v.playbackRate), i => { v.playbackRate = vel[i]; })));
 }
@@ -355,5 +357,5 @@ function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, inse
     if (ai > 0) v.addEventListener('loadedmetadata', () => setAudio(ai), { once: true });
   }).catch(() => { if (!empezado) { clearTimeout(plan); arrancar(); } });
 }
-window.Reproductor = { abrir, cerrar, bandera };
+window.Reproductor = { abrir, cerrar, bandera: banderaDe };
 })();

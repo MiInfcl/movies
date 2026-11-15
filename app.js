@@ -65,7 +65,8 @@ let datos = null, ruta = '', items = [];
 function durTxt(seg) { if (!seg) return ''; const m = Math.round(seg / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m} min`; }
 // Bandera de un idioma (por su nombre o código): «Español latino» -> México, «Inglés» -> Estados Unidos...
 const bandera = l => Reproductor.bandera(l);
-const listaIdiomas = ls => ls.map(l => (bandera(l) ? bandera(l) + ' ' : '') + l).join(', ');
+const lab = x => typeof x === 'string' ? x : x.l;
+const listaIdiomas = ls => { const vis = new Set(); return ls.filter(x => !vis.has(lab(x)) && vis.add(lab(x))).map(x => (bandera(x) ? bandera(x) + ' ' : '') + lab(x)).join(', '); };
 function metaTxt(f) {
   const p = f.peli || {}, dur = p.duracion ? p.duracion * 60 : f.video && f.video.duracion;
   const ban = p.idiomas ? [...new Set(p.idiomas.audio.map(bandera).filter(Boolean))].join('') : '';
@@ -98,7 +99,7 @@ async function render(sinCargando) {
     return `<div class="card${f.oculto ? ' oc' : ''}" tabindex="0" data-i="${i}" data-n="${esc((t + ' ' + f.nombre).toLowerCase())}">
       <div class="poster">${p.caratula ? `<img loading="lazy" alt="" src="${esc(p.caratula)}">` : `<div class="ph">${esc(t)}</div>`}
         ${f.oculto ? '<span class="tag">Oculto</span>' : ''}
-        <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas([...new Set(p.idiomas.subs)]))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
+        <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas(p.idiomas.subs))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
         <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Acciones">${ICON.more}</button>` : ''}</div>
         ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}
       </div><div class="nom" title="${esc(f.nombre)}">${esc(t)}</div></div>`;
