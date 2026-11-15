@@ -281,7 +281,7 @@ function abrirMenu(anchor, html, acts) {
 function menuItem(f, anchor) {
   const v = kindOf(f) === 'video';
   abrirMenu(anchor, '<button data-a="ren">Renombrar</button><button data-a="mov">Mover a…</button><button data-a="dup">Duplicar</button>'
-    + (v ? '<button data-a="pis">Agregar audio o subtítulos</button><button data-a="edp">Editar pistas y calidades</button>' : '')
+    + (v ? '<button data-a="ide">Elegir qué película es</button><button data-a="pis">Agregar audio o subtítulos</button><button data-a="edp">Editar pistas y calidades</button>' : '')
     + (v && f.peli ? `<button data-a="des">${f.peli.destacada ? 'Quitar de destacadas' : 'Destacar en el carrusel'}</button>` : '')
     + `<button data-a="ocu">${f.oculto ? 'Mostrar a todos' : 'Ocultar'}</button><hr><button data-a="del" class="bad">Eliminar</button>`, {
     ren: () => renombrar({ id: f.id }, f.nombre, true),
@@ -289,6 +289,9 @@ function menuItem(f, anchor) {
     dup: () => ventana('<h3>Duplicar</h3><p>Se creará una copia de «' + esc(f.nombre) + '» en la misma carpeta de su Drive, con sus pistas.</p>', async () => listo(await api('/api/admin', { op: 'duplicar', id: f.id })), 'Duplicar'),
     pis: () => subirPista(f),
     edp: () => editarPistas(f),
+    ide: () => ventana(`<h3>¿Qué película es?</h3><p>${f.peli && f.peli.titulo ? `Hoy aparece como «${esc(f.peli.titulo)}»${f.peli.año ? ' (' + f.peli.año + ')' : ''}. ` : 'No se reconoció sola. '}Pega el enlace de su página en IMDb, TMDB, Letterboxd, Wikipedia, FilmAffinity u otro sitio, o escribe su título y año.</p>
+      <input class="t" id="ide" placeholder="https://www.imdb.com/title/tt…" autocomplete="off" inputmode="url"><p class="nota">Archivo: ${esc(f.nombre)}</p>`,
+      async () => { const enlace = $('#ide').value.trim(); if (!enlace) throw new Error('Pega un enlace o escribe el título.'); listo(await api('/api/admin', { op: 'identificar', id: f.id, enlace })); }, 'Buscar'),
     des: async () => { try { msg((await api('/api/admin', { op: 'destacar', nombre: f.nombre, valor: !f.peli.destacada })).mensaje); render(true); } catch (e) { msg(e.message, true); } },
     ocu: () => ocultar({ id: f.id }, !f.oculto),
     del: () => eliminar({ id: f.id }, f.nombre, false)
