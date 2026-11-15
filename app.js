@@ -46,7 +46,7 @@ $('#bLogin').onclick = () => {
   $('#eLogin').textContent = '';
   if (!window.google?.accounts?.oauth2) return $('#eLogin').textContent = 'Google todavía no carga. Intenta de nuevo.';
   tokenClient = tokenClient || google.accounts.oauth2.initTokenClient({
-    client_id: C.CLIENT_ID, scope: 'openid email',
+    client_id: C.CLIENT_ID, scope: 'openid email profile',
     callback: async r => {
       if (r.error) return $('#eLogin').textContent = r.error_description || r.error;
       try { yo = (await api('/api/google', { token: r.access_token })).usuario; start(); } catch (x) { $('#eLogin').textContent = x.message; }
@@ -60,17 +60,18 @@ async function salir() { try { await api('/api/salir'); } catch {} yo = null; sh
 // ---------- Navegación: #/Carpeta/Subcarpeta ----------
 const rutaActual = () => { const h = location.hash; if (!h.startsWith('#/')) return ''; try { return decodeURIComponent(h.slice(2)).replace(/\/+$/, ''); } catch { return ''; } };
 const enlace = r => '#/' + r.split('/').map(encodeURIComponent).join('/');
-let datos = null, ruta = '', items = [];
+let datos = null, ruta = '', items = [], vids = [];
 
 function durTxt(seg) { if (!seg) return ''; const m = Math.round(seg / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m} min`; }
 // Bandera de un idioma (por su nombre o código): «Español latino» -> México, «Inglés» -> Estados Unidos...
 const bandera = l => Reproductor.bandera(l);
 const lab = x => typeof x === 'string' ? x : x.l;
 const listaIdiomas = ls => { const vis = new Set(); return ls.filter(x => !vis.has(lab(x)) && vis.add(lab(x))).map(x => (bandera(x) ? bandera(x) + ' ' : '') + lab(x)).join(', '); };
+const edadTxt = e => e == null ? '' : e === 0 ? 'TP' : '+' + e;
 function metaTxt(f) {
   const p = f.peli || {}, dur = p.duracion ? p.duracion * 60 : f.video && f.video.duracion;
   const ban = p.idiomas ? [...new Set(p.idiomas.audio.map(bandera).filter(Boolean))].join('') : '';
-  return [p.año, durTxt(dur), ban].filter(Boolean).join(' · ');
+  return [p.año, durTxt(dur), edadTxt(p.edad), ban].filter(Boolean).join(' · ');
 }
 const tituloDe = f => (f.peli && f.peli.titulo) || f.nombre.replace(/\.[^.]+$/, '');
 
@@ -92,18 +93,8 @@ async function render(sinCargando) {
   $('#crumbs').innerHTML = '<a href="#/">Inicio</a>' + segs.map((s, i) => `<span>/</span><a href="${enlace(segs.slice(0, i + 1).join('/'))}">${esc(s)}</a>`).join('');
   // Carpetas
   $('#carpetas').innerHTML = datos.carpetas.map((c, i) => `<a class="carpeta${c.oculto ? ' oc' : ''}" href="${enlace(c.ruta)}" data-n="${esc(c.nombre.toLowerCase())}">${ICON.folder}<span>${esc(c.nombre)}</span>${esAdmin() ? `<button class="ico x" type="button" data-c="${i}" title="Acciones">${ICON.more}</button>` : '<span></span>'}</a>`).join('');
-  // Películas y videos: carátulas
-  const vids = items.map((f, i) => ({ f, i })).filter(x => kindOf(x.f) === 'video');
-  $('#grid').innerHTML = vids.map(({ f, i }) => {
-    const p = f.peli || {}, t = tituloDe(f), mt = metaTxt(f), src = srcDe(f);
-    return `<div class="card${f.oculto ? ' oc' : ''}" tabindex="0" data-i="${i}" data-n="${esc((t + ' ' + f.nombre).toLowerCase())}">
-      <div class="poster">${p.caratula ? `<img loading="lazy" alt="" src="${esc(p.caratula)}">` : `<div class="ph">${esc(t)}</div>`}
-        ${f.oculto ? '<span class="tag">Oculto</span>' : ''}
-        <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas(p.idiomas.subs))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
-        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Acciones">${ICON.more}</button>` : ''}</div>
-        ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}${f.prog && f.prog.d ? `<span class="prog" title="Visto ${Math.min(100, Math.round(f.prog.t / f.prog.d * 100))} %"><i style="width:${Math.min(100, f.prog.t / f.prog.d * 100)}%"></i></span>` : ''}
-      </div><div class="nom" title="${esc(f.nombre)}">${esc(t)}</div></div>`;
-  }).join('');
+  vids = items.map((f, i) => ({ f, i })).filter(x => kindOf(x.f) === 'video');
+  pintarFiltros(); pintarCarrusel(); pintarGrid();
   // Otros archivos
   const otros = items.map((f, i) => ({ f, i })).filter(x => kindOf(x.f) !== 'video');
   $('#filas').innerHTML = otros.map(({ f, i }) => `<div class="fila${f.oculto ? ' oc' : ''}" data-i="${i}" data-n="${esc(f.nombre.toLowerCase())}"><span class="ic">${ICON[kindOf(f)]}</span><span class="n">${esc(f.nombre)}${f.oculto ? ' <small>(oculto)</small>' : ''}</span><span class="s">${f.size ? tam(f.size) : ''}</span><a class="btn sec" href="${srcDe(f)}&dl=1" data-stop="1" title="Descargar">${ICON.dl}</a>${esAdmin() ? `<button class="ico" type="button" data-more="${i}">${ICON.more}</button>` : ''}</div>`).join('');
@@ -113,6 +104,100 @@ async function render(sinCargando) {
   filtrar();
   if (datos.faltan > 0 && !completando) completarCatalogo();
 }
+// ---------- Ordenar y filtrar (se recuerda en este navegador) ----------
+const LENGUAS = { spa: 'Español', es: 'Español', eng: 'Inglés', en: 'Inglés', por: 'Portugués', pt: 'Portugués', fra: 'Francés', fre: 'Francés', fr: 'Francés', ita: 'Italiano', it: 'Italiano', deu: 'Alemán', ger: 'Alemán', de: 'Alemán', jpn: 'Japonés', ja: 'Japonés', kor: 'Coreano', ko: 'Coreano', zho: 'Chino', chi: 'Chino', zh: 'Chino', rus: 'Ruso', ru: 'Ruso' };
+function idiomaDe(x) {
+  const l = typeof x === 'string' ? x : x.l || x.label || '', c = typeof x === 'string' ? '' : x.c || x.lang || '';
+  if (/latin|lat\b|419|mex/i.test(l)) return 'Español latino';
+  if (/castellano|españa/i.test(l)) return 'Español de España';
+  if (LENGUAS[c]) return LENGUAS[c];
+  const m = Object.entries({ 'Español': /espa[ñn]ol|spanish/i, 'Inglés': /ingl[eéè]s|english/i, 'Portugués': /portugu/i, 'Francés': /franc[eé]s|french/i, 'Italiano': /italian/i, 'Alemán': /alem[aá]n|german/i, 'Japonés': /japon|japanese/i, 'Coreano': /corean|korean/i }).find(([, re]) => re.test(l));
+  return m ? m[0] : null;
+}
+const conBand = n => (bandera(n) ? bandera(n) + ' ' : '') + n;
+const ORDENES = { nombre: 'Nombre', año: 'Año', nota: 'Puntuación', duracion: 'Duración', reciente: 'Recién agregadas', edad: 'Clasificación' };
+let vista = (() => { try { return JSON.parse(localStorage.getItem('butaca-vista')) || {}; } catch { return {}; } })();
+vista = { orden: 'nombre', dir: 1, genero: '', audio: '', subs: '', edad: '', ...vista };
+const guardarVista = () => { try { localStorage.setItem('butaca-vista', JSON.stringify(vista)); } catch {} };
+const durDe = f => (f.peli && f.peli.duracion ? f.peli.duracion * 60 : f.video && f.video.duracion) || 0;
+function pintarFiltros() {
+  const el = $('#filtros'); if (!vids.length) { el.innerHTML = ''; return; }
+  const set = fn => [...new Set(vids.flatMap(({ f }) => fn(f.peli || {})).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const generos = set(p => p.generos || []);
+  const audios = set(p => p.idiomas ? p.idiomas.audio.map(idiomaDe) : []);
+  const subs = set(p => p.idiomas ? p.idiomas.subs.map(idiomaDe) : []);
+  const sel = (id, titulo, ops, val, fmt = x => x) => `<label class="fsel"><span>${titulo}</span><select id="${id}"><option value="">${id === 'fEdad' ? 'Todas' : 'Todos'}</option>${ops.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(fmt(o))}</option>`).join('')}</select></label>`;
+  el.innerHTML = `<label class="fsel"><span>Ordenar por</span><select id="fOrden">${Object.entries(ORDENES).map(([k, t]) => `<option value="${k}"${k === vista.orden ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    <button type="button" class="sec dir" id="fDir" title="${vista.dir > 0 ? 'Ascendente' : 'Descendente'}">${vista.dir > 0 ? '↑' : '↓'}</button>
+    ${sel('fGen', 'Género', generos, vista.genero)}${sel('fAud', 'Audio', audios, vista.audio, conBand)}${sel('fSub', 'Subtítulos', subs, vista.subs, conBand)}
+    <label class="fsel"><span>Edad</span><select id="fEdad"><option value="">Todas</option>${[[0, 'Todo público'], [7, 'Hasta +7'], [13, 'Hasta +13'], [16, 'Hasta +16']].map(([v, t]) => `<option value="${v}"${String(v) === String(vista.edad) ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    <button type="button" class="sec limpiar${vista.genero || vista.audio || vista.subs || vista.edad !== '' ? '' : ' hidden'}" id="fLimpiar">Quitar filtros</button>`;
+  const cambio = () => { vista.orden = $('#fOrden').value; vista.genero = $('#fGen').value; vista.audio = $('#fAud').value; vista.subs = $('#fSub').value; vista.edad = $('#fEdad').value; guardarVista(); pintarFiltros(); pintarGrid(); };
+  el.querySelectorAll('select').forEach(x => x.onchange = cambio);
+  $('#fDir').onclick = () => { vista.dir = -vista.dir; guardarVista(); pintarFiltros(); pintarGrid(); };
+  $('#fLimpiar').onclick = () => { Object.assign(vista, { genero: '', audio: '', subs: '', edad: '' }); guardarVista(); pintarFiltros(); pintarGrid(); };
+}
+function visibles() {
+  const q = $('#q').value.trim().toLowerCase();
+  let ls = vids.filter(({ f }) => {
+    const p = f.peli || {};
+    if (q && !(tituloDe(f) + ' ' + f.nombre + ' ' + (p.generos || []).join(' ')).toLowerCase().includes(q)) return false;
+    if (vista.genero && !(p.generos || []).includes(vista.genero)) return false;
+    if (vista.audio && !(p.idiomas && p.idiomas.audio.some(x => idiomaDe(x) === vista.audio))) return false;
+    if (vista.subs && !(p.idiomas && p.idiomas.subs.some(x => idiomaDe(x) === vista.subs))) return false;
+    if (vista.edad !== '' && !(p.edad != null && p.edad <= +vista.edad)) return false;
+    return true;
+  });
+  const val = { nombre: f => tituloDe(f).toLowerCase(), año: f => (f.peli && f.peli.año) || 0, nota: f => (f.peli && f.peli.nota) || 0, duracion: durDe, reciente: f => f.fecha || '', edad: f => (f.peli && f.peli.edad) ?? 99 }[vista.orden] || (f => tituloDe(f).toLowerCase());
+  ls.sort((a, b) => { const x = val(a.f), y = val(b.f); return (typeof x === 'string' ? x.localeCompare(y, 'es', { numeric: true }) : x - y) * vista.dir; });
+  return ls;
+}
+function tarjeta({ f, i }) {
+  const p = f.peli || {}, t = tituloDe(f), mt = metaTxt(f), src = srcDe(f);
+  return `<div class="card${f.oculto ? ' oc' : ''}" tabindex="0" data-i="${i}">
+      <div class="poster">${p.caratula ? `<img loading="lazy" alt="" src="${esc(p.caratula)}">` : `<div class="ph">${esc(t)}</div>`}
+        ${f.oculto ? '<span class="tag">Oculto</span>' : ''}
+        <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas(p.idiomas.subs))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
+        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Acciones">${ICON.more}</button>` : ''}</div>
+        ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}${f.prog && f.prog.d ? `<span class="prog" title="Visto ${Math.min(100, Math.round(f.prog.t / f.prog.d * 100))} %"><i style="width:${Math.min(100, f.prog.t / f.prog.d * 100)}%"></i></span>` : ''}
+      </div><div class="nom" title="${esc(f.nombre)}">${esc(t)}</div></div>`;
+}
+function pintarGrid() {
+  const ls = visibles();
+  $('#grid').innerHTML = ls.map(tarjeta).join('');
+  const sinRes = vids.length && !ls.length;
+  $('#sinres').classList.toggle('hidden', !sinRes);
+}
+
+// ---------- Carrusel de destacadas ----------
+let carT = 0, carI = 0;
+function pintarCarrusel() {
+  const el = $('#hero'); clearInterval(carT);
+  const q = $('#q').value.trim();
+  let ds = vids.filter(({ f }) => f.peli && f.peli.destacada && !f.oculto);
+  if (!ds.length) ds = vids.filter(({ f }) => f.peli && (f.peli.fondo || f.peli.caratula) && !f.oculto).sort((a, b) => String(b.f.fecha).localeCompare(String(a.f.fecha))).slice(0, 5);
+  if (ruta || q || ds.length < 1) { el.innerHTML = ''; el.classList.add('hidden'); return; }
+  ds = ds.slice(0, 5); carI = Math.min(carI, ds.length - 1);
+  el.classList.remove('hidden');
+  el.innerHTML = '<div class="slides">' + ds.map(({ f, i }, n) => {
+    const p = f.peli, fondo = p.fondo || p.caratula;
+    const meta = [p.año, durTxt(durDe(f)), edadTxt(p.edad), p.nota ? '★ ' + String(p.nota).replace('.', ',') : ''].filter(Boolean).join(' · ');
+    const aud = p.idiomas ? [...new Set(p.idiomas.audio.map(idiomaDe).filter(Boolean))] : [];
+    return `<div class="slide${n === carI ? ' on' : ''}" data-n="${n}"><div class="fondo${p.fondo ? '' : ' borroso'}" style="background-image:url('${esc(fondo)}')"></div><div class="velo"></div>
+      <div class="cont">${p.caratula ? `<img class="mini" src="${esc(p.caratula)}" alt="">` : ''}<div class="txt"><span class="eti">${p.destacada ? 'Destacada' : 'Recién agregada'}</span><h2>${esc(tituloDe(f))}</h2>
+      <div class="m">${esc(meta)}${aud.length ? ' · ' + esc(aud.map(conBand).join(', ')) : ''}</div>${p.generos && p.generos.length ? `<div class="g">${esc(p.generos.join(' · '))}</div>` : ''}
+      <p>${esc(p.sinopsis || '')}</p><div class="b"><button type="button" data-play="${i}">${ICON.play}Reproducir</button>${f.prog && f.prog.t > 60 && f.prog.t < f.prog.d - 90 ? `<span class="seguir">Vas en ${esc(durTxt(f.prog.t))}</span>` : ''}</div></div></div></div>`;
+  }).join('') + '</div>' + (ds.length > 1 ? `<button type="button" class="flecha izq" aria-label="Anterior">${I('<path d="m15 6-6 6 6 6"/>')}</button><button type="button" class="flecha der" aria-label="Siguiente">${I('<path d="m9 6 6 6-6 6"/>')}</button><div class="puntos">${ds.map((_, n) => `<button type="button" data-p="${n}" class="${n === carI ? 'on' : ''}" aria-label="Destacada ${n + 1}"></button>`).join('')}</div>` : '');
+  const ir = n => { carI = (n + ds.length) % ds.length; el.querySelectorAll('.slide').forEach(s => s.classList.toggle('on', +s.dataset.n === carI)); el.querySelectorAll('.puntos button').forEach(b => b.classList.toggle('on', +b.dataset.p === carI)); };
+  const auto = () => { clearInterval(carT); if (ds.length > 1) carT = setInterval(() => { if (!document.hidden && !el.matches(':hover')) ir(carI + 1); }, 8000); };
+  el.onclick = e => {
+    const pl = e.target.closest('[data-play]'); if (pl) return abrir(items[+pl.dataset.play]);
+    if (e.target.closest('.izq')) { ir(carI - 1); auto(); } else if (e.target.closest('.der')) { ir(carI + 1); auto(); }
+    const pt = e.target.closest('[data-p]'); if (pt) { ir(+pt.dataset.p); auto(); }
+  };
+  auto();
+}
+
 function aviso(t, conectar) {
   $('#aviso').innerHTML = '<span>' + esc(t) + '</span>' + (conectar ? '<button type="button" id="conectar">Conectar mi Google Drive</button>' : '');
   $('#aviso').classList.remove('hidden');
@@ -129,9 +214,9 @@ async function completarCatalogo() {
 addEventListener('hashchange', () => { if (location.hash.startsWith('#/') || !location.hash) render(); });
 function filtrar() {
   const v = $('#q').value.trim().toLowerCase();
-  document.querySelectorAll('[data-n]').forEach(el => el.style.display = !v || el.dataset.n.includes(v) ? '' : 'none');
+  document.querySelectorAll('.carpeta[data-n],.fila[data-n]').forEach(el => el.style.display = !v || el.dataset.n.includes(v) ? '' : 'none');
 }
-$('#q').oninput = filtrar;
+$('#q').oninput = () => { filtrar(); pintarCarrusel(); pintarGrid(); };
 
 // ---------- Abrir ----------
 function abrir(f) {
@@ -173,11 +258,13 @@ function menuItem(f, anchor) {
   const v = kindOf(f) === 'video';
   abrirMenu(anchor, '<button data-a="ren">Renombrar</button><button data-a="mov">Mover a…</button><button data-a="dup">Duplicar</button>'
     + (v ? '<button data-a="pis">Agregar audio o subtítulos</button>' : '')
+    + (v && f.peli ? `<button data-a="des">${f.peli.destacada ? 'Quitar de destacadas' : 'Destacar en el carrusel'}</button>` : '')
     + `<button data-a="ocu">${f.oculto ? 'Mostrar a todos' : 'Ocultar'}</button><hr><button data-a="del" class="bad">Eliminar</button>`, {
     ren: () => renombrar({ id: f.id }, f.nombre, true),
     mov: () => mover({ id: f.id }, f.nombre),
     dup: () => ventana('<h3>Duplicar</h3><p>Se creará una copia de «' + esc(f.nombre) + '» en la misma carpeta de su Drive, con sus pistas.</p>', async () => listo(await api('/api/admin', { op: 'duplicar', id: f.id })), 'Duplicar'),
     pis: () => subirPista(f),
+    des: async () => { try { msg((await api('/api/admin', { op: 'destacar', nombre: f.nombre, valor: !f.peli.destacada })).mensaje); render(true); } catch (e) { msg(e.message, true); } },
     ocu: () => ocultar({ id: f.id }, !f.oculto),
     del: () => eliminar({ id: f.id }, f.nombre, false)
   });
@@ -390,7 +477,7 @@ async function panelUsuarios(el) {
   const cargar = async () => {
     const { usuarios } = await api('/api/usuarios');
     usuarios.sort((a, b) => (a.rol === b.rol ? a.nombre.localeCompare(b.nombre) : a.rol === 'admin' ? -1 : 1));
-    el.querySelector('#ut').innerHTML = usuarios.map(u => `<tr><td>${esc(u.nombre)}${u.google ? ' <small>Google</small>' : ''}</td><td>${u.rol}</td><td>${u.nombre === yo.nombre ? '' : `<button class="sec" type="button" data-e="${esc(u.nombre)}" data-r="${u.rol}">Editar</button> <button class="danger" type="button" data-b="${esc(u.nombre)}">Borrar</button>`}</td></tr>`).join('');
+    el.querySelector('#ut').innerHTML = usuarios.map(u => `<tr><td>${u.visible ? esc(u.visible) + ' <small>' + esc(u.nombre) + '</small>' : esc(u.nombre)}${u.google ? ' <small>Google</small>' : ''}</td><td>${u.rol}</td><td>${u.nombre === yo.nombre ? '' : `<button class="sec" type="button" data-e="${esc(u.nombre)}" data-r="${u.rol}">Editar</button> <button class="danger" type="button" data-b="${esc(u.nombre)}">Borrar</button>`}</td></tr>`).join('');
   };
   el.querySelector('#ut').onclick = async e => {
     const ed = e.target.closest('button[data-e]'); if (ed) { el.querySelector('#un').value = ed.dataset.e; el.querySelector('#ur').value = ed.dataset.r; el.querySelector('#uc').focus(); return; }
@@ -479,13 +566,14 @@ async function contarSols() {
 // Menú de la cuenta
 $('#bYo').onclick = e => {
   e.stopPropagation();
-  abrirMenu($('#bYo'), `<div class="who"><b>${esc(yo.nombre)}</b>${yo.rol === 'admin' ? 'Administrador' : 'Usuario'}</div><hr><button data-a="out">Cerrar sesión</button>`, { out: salir });
+  abrirMenu($('#bYo'), `<div class="who"><b>${esc(yo.visible || yo.nombre)}</b>${yo.visible ? esc(yo.nombre) + '<br>' : ''}${yo.rol === 'admin' ? 'Administrador' : 'Usuario'}</div><hr><button data-a="out">Cerrar sesión</button>`, { out: salir });
 };
 
 // ---------- Arranque ----------
 function start() {
   show('app');
-  $('#yoNom').textContent = yo.nombre; $('#yoAv').textContent = (yo.nombre[0] || '?').toUpperCase();
+  const visible = yo.visible || yo.nombre; $('#yoNom').textContent = visible;
+  $('#yoAv').innerHTML = yo.foto ? `<img src="${esc(yo.foto)}" alt="" referrerpolicy="no-referrer">` : esc((visible[0] || '?').toUpperCase());
   $('#adminBtns').classList.toggle('hidden', !esAdmin());
   const h = location.hash;
   if (/^#drive-(ok|error)=/.test(h)) { const ok = h.startsWith('#drive-ok='); msg(decodeURIComponent(h.split('=').slice(1).join('=')), !ok); history.replaceState(null, '', location.pathname + '#/'); }

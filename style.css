@@ -177,3 +177,34 @@ table.sols img{width:30px;height:45px;border-radius:4px;object-fit:cover;display
 .plazo p{color:var(--tx)!important}
 .cuenta-reg{display:flex;gap:8px}.cuenta-reg span{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:8px;background:rgba(0,0,0,.25);font-size:.72rem;color:var(--mut)}
 .cuenta-reg b{font-size:1.5rem;color:var(--tx);font-variant-numeric:tabular-nums;line-height:1.2}
+
+/* Avatar con foto */
+.yo .av{overflow:hidden}.yo .av img{width:100%;height:100%;object-fit:cover;display:block}
+/* Filtros y orden */
+.filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;justify-content:center;margin:0 auto 22px;max-width:calc(6 * var(--w, 250px) + 110px)}
+.filtros:empty{display:none}
+.fsel{display:flex;flex-direction:column;gap:4px;font-size:.72rem;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.fsel select{min-width:150px;background:rgba(0,8,30,.55);border:1px solid var(--line2);border-radius:8px;color:var(--tx);padding:8px 10px;font:500 .88rem Inter,"Noto Color Emoji",system-ui,sans-serif;text-transform:none;letter-spacing:0}
+.filtros .dir{width:40px;height:38px;padding:0;font-size:1.05rem}.filtros .limpiar{height:38px;padding:0 14px}
+/* Carrusel */
+.hero{position:relative;max-width:1720px;height:clamp(300px,46vh,460px);margin:0 auto 26px;border-radius:14px;overflow:hidden;background:#071430;box-shadow:0 16px 50px rgba(0,0,0,.4)}
+.hero .slides,.hero .slide{position:absolute;inset:0}
+.hero .slide{opacity:0;transition:opacity .7s ease;pointer-events:none}.hero .slide.on{opacity:1;pointer-events:auto}
+.hero .fondo{position:absolute;inset:0;background:center 25%/cover no-repeat;transform:scale(1.04);transition:transform 8s linear}.hero .slide.on .fondo{transform:scale(1)}
+.hero .fondo.borroso{filter:blur(24px) brightness(.7);transform:scale(1.2)}
+.hero .velo{position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,10,28,.96) 0%,rgba(4,10,28,.82) 38%,rgba(4,10,28,.2) 75%,rgba(4,10,28,.05)),linear-gradient(0deg,rgba(4,10,28,.7),transparent 45%)}
+.hero .cont{position:absolute;inset:0;display:flex;align-items:center;gap:28px;padding:30px 70px}
+.hero .mini{height:82%;max-height:340px;aspect-ratio:2/3;object-fit:cover;border-radius:10px;box-shadow:0 12px 34px rgba(0,0,0,.55);flex:none}
+.hero .txt{max-width:640px;display:flex;flex-direction:column;gap:9px}
+.hero .eti{align-self:flex-start;padding:3px 9px;border-radius:5px;background:rgba(61,139,253,.25);color:var(--acc2);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.hero h2{margin:0;font-size:clamp(1.5rem,2.6vw,2.4rem);line-height:1.1;letter-spacing:-.01em}
+.hero .m{color:#d6def0;font-size:.9rem}.hero .g{color:var(--acc2);font-size:.84rem}
+.hero p{margin:0;color:#c7d2e8;font-size:.95rem;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.hero .b{display:flex;align-items:center;gap:14px;margin-top:6px}.hero .b button{padding:11px 22px;font-size:.95rem}.hero .b button svg{width:18px;height:18px}
+.hero .seguir{color:var(--mut);font-size:.84rem}
+.hero .flecha{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;padding:0;border-radius:50%;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.15);opacity:0;transition:opacity .2s}
+.hero:hover .flecha{opacity:1}.hero .flecha:hover{background:rgba(61,139,253,.6)}.hero .izq{left:14px}.hero .der{right:14px}
+.hero .puntos{position:absolute;right:22px;bottom:16px;display:flex;gap:7px}
+.hero .puntos button{width:9px;height:9px;padding:0;border-radius:5px;background:rgba(255,255,255,.35);border:0;transition:width .25s}.hero .puntos button.on{width:26px;background:#fff}
+@media (max-width:700px){.hero{height:auto;min-height:380px}.hero .cont{padding:22px 18px 40px;align-items:flex-end}.hero .mini{display:none}.hero p{-webkit-line-clamp:3}.hero .velo{background:linear-gradient(0deg,rgba(4,10,28,.97) 15%,rgba(4,10,28,.5) 70%,rgba(4,10,28,.2))}
+  .fsel select{min-width:0;width:100%}.fsel{flex:1 1 40%}}
