@@ -1,0 +1,32 @@
+# Baja a Drive los enlaces que pegan los admins en el sitio (cola _pedidos del Drive principal),
+# al Drive con más espacio libre, y le saca las pistas de audio y subtítulos.
+name: Pedidos por enlace
+on:
+  schedule:
+    - cron: '*/5 * * * *'     # GitHub lo corre cada 5 a 15 minutos
+  workflow_dispatch:
+concurrency:
+  group: pedidos
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  pedidos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar rclone y ffmpeg
+        run: |
+          curl -fsSL https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-linux-amd64.zip -o rclone.zip
+          unzip -q rclone.zip && sudo install rclone-*/rclone /usr/local/bin/ && rm -rf rclone*
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: Espacio de trabajo
+        run: sudo mkdir -p /mnt/mm && sudo chown "$USER" /mnt/mm
+      - name: Procesar pedidos
+        env:
+          ROBOT_KEY: ${{ secrets.ROBOT_KEY }}
+          API: ${{ vars.API || 'https://movies-api.emailrouting.xyz' }}
+          TRABAJO: /mnt/mm
+          MINUTOS: '320'
+        run: node scripts/robot.mjs pedidos

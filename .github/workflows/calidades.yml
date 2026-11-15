@@ -1,0 +1,32 @@
+# Recorre todos los Drive de la biblioteca y a cada video le hace sus calidades (1080p, 720p, 480p, 360p, 240p, 144p),
+# saca sus pistas de audio y subtítulos, y convierte los audios que suben los admins. Lo ya hecho se salta.
+name: Calidades y pistas
+on:
+  schedule:
+    - cron: '17 * * * *'      # una vez por hora (si ya está todo hecho, termina en un minuto)
+  workflow_dispatch:
+concurrency:
+  group: calidades
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  calidades:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar rclone y ffmpeg
+        run: |
+          curl -fsSL https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-linux-amd64.zip -o rclone.zip
+          unzip -q rclone.zip && sudo install rclone-*/rclone /usr/local/bin/ && rm -rf rclone*
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: Espacio de trabajo
+        run: sudo mkdir -p /mnt/mm && sudo chown "$USER" /mnt/mm && df -h /mnt
+      - name: Procesar videos
+        env:
+          ROBOT_KEY: ${{ secrets.ROBOT_KEY }}
+          API: ${{ vars.API || 'https://movies-api.emailrouting.xyz' }}
+          TRABAJO: /mnt/mm
+          MINUTOS: '330'
+        run: node scripts/robot.mjs calidades
