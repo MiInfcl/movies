@@ -283,14 +283,13 @@ function menuItem(f, anchor) {
   const reiniciar = async () => { try { msg((await api('/api/progreso/borrar', { id: f.id })).mensaje); f.prog = null; render(true); } catch (e) { msg(e.message, true); } };
   if (!esAdmin()) return visto && abrirMenu(anchor, '<button data-a="rei">Restablecer progreso</button>', { rei: reiniciar });
   abrirMenu(anchor, '<button data-a="ren">Renombrar</button><button data-a="mov">Mover a…</button><button data-a="dup">Duplicar</button>'
-    + (v ? '<button data-a="ide">Elegir qué película es</button><button data-a="pis">Agregar audio o subtítulos</button><button data-a="edp">Editar pistas y calidades</button>' : '')
+    + (v ? '<button data-a="ide">Elegir qué película es</button><button data-a="edp">Audio, subtítulos y calidades</button>' : '')
     + (visto ? '<button data-a="rei">Restablecer progreso</button>' : '')
     + (v && f.peli ? `<button data-a="des">${f.peli.destacada ? 'Quitar de destacadas' : 'Destacar en el carrusel'}</button>` : '')
     + `<button data-a="ocu">${f.oculto ? 'Mostrar a todos' : 'Ocultar'}</button><hr><button data-a="del" class="bad">Eliminar</button>`, {
     ren: () => renombrar({ id: f.id }, f.nombre, true),
     mov: () => mover({ id: f.id }, f.nombre),
     dup: () => ventana('<h3>Duplicar</h3><p>Se creará una copia de «' + esc(f.nombre) + '» en la misma carpeta de su Drive, con sus pistas.</p>', async () => listo(await api('/api/admin', { op: 'duplicar', id: f.id })), 'Duplicar'),
-    pis: () => subirPista(f),
     edp: () => editarPistas(f),
     rei: reiniciar,
     ide: () => ventana(`<h3>¿Qué película es?</h3><p>${f.peli && f.peli.titulo ? `Hoy aparece como «${esc(f.peli.titulo)}»${f.peli.año ? ' (' + f.peli.año + ')' : ''}. ` : 'No se reconoció sola. '}Pega el enlace de su página en IMDb, TMDB, Letterboxd, Wikipedia, FilmAffinity u otro sitio, o escribe su título y año.</p>
@@ -359,79 +358,85 @@ $('#bCarpeta').onclick = () => ventana('<h3>Nueva carpeta</h3><input class="t" i
 }, 'Crear');
 
 // Subir audio o subtítulos a la carpeta de la película (directo del navegador a Drive)
-function subirPista(f) {
-  let tipo = 'sub';
-  ventana(`<h3>Agregar audio o subtítulos</h3><p>Para «${esc(tituloDe(f))}». Se guarda en la carpeta «${esc(f.nombre.replace(/\.[^.]+$/, ''))}» de su Drive, que no se ve en el sitio.</p>
-    <div class="seg" id="tp"><button type="button" class="on" data-t="sub">Subtítulos</button><button type="button" data-t="audio">Audio</button></div>
-    <div><label class="l" for="pe">Nombre de la pista</label><input class="t" id="pe" placeholder="Ej.: Español latino" autocomplete="off"></div>
-    <div><label class="l" for="pf">Archivo</label><input class="t" id="pf" type="file" accept=".srt,.vtt,.ass,.ssa"></div>
-    <div class="progreso hidden" id="pp"><i></i></div>`, async () => {
-    const file = $('#pf').files[0], etiqueta = $('#pe').value.trim();
-    if (!etiqueta) throw new Error('Escribe un nombre para la pista.'); if (!file) throw new Error('Elige un archivo.');
-    const ext = (file.name.split('.').pop() || '').toLowerCase();
-    const r = await api('/api/subir', { id: f.id, tipo, etiqueta, ext, size: file.size });
-    $('#pp').classList.remove('hidden');
-    await new Promise((ok, no) => {
-      const x = new XMLHttpRequest(); x.open('PUT', r.url);
-      x.upload.onprogress = e => { if (e.lengthComputable) $('#pp i').style.width = (e.loaded / e.total * 100) + '%'; };
-      x.onload = () => x.status < 300 ? ok() : no(new Error('Drive rechazó la subida (' + x.status + ').'));
-      x.onerror = () => no(new Error('Se cortó la subida.')); x.send(file);
-    });
-    cerrarDlg(); msg(r.mensaje);
-  }, 'Subir');
-  $('#tp').onclick = e => { const b = e.target.closest('button'); if (!b) return; tipo = b.dataset.t; $('#tp').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-    $('#pf').accept = tipo === 'sub' ? '.srt,.vtt,.ass,.ssa' : '.m4a,.mp3,.aac,.ac3,.eac3,.dts,.mka,.ogg,.opus,.flac,.wav'; };
-}
-
-// ---------- Editar pistas y calidades (admins): qué es cada archivo de la carpeta del video ----------
-const IDIOMAS = [['spa', 'Español'], ['eng', 'Inglés'], ['por', 'Portugués'], ['fra', 'Francés'], ['ita', 'Italiano'], ['deu', 'Alemán'], ['jpn', 'Japonés'], ['kor', 'Coreano'], ['zho', 'Chino'], ['rus', 'Ruso'], ['', 'Otro']];
+// ---------- Audio, subtítulos y calidades (admins): qué es cada archivo de la carpeta del video ----------
+const IDIOMAS = [['spa', 'Español'], ['eng', 'Inglés'], ['por', 'Portugués'], ['fra', 'Francés'], ['ita', 'Italiano'], ['deu', 'Alemán'], ['jpn', 'Japonés'], ['kor', 'Coreano'], ['zho', 'Chino'], ['rus', 'Ruso'], ['', 'Otro idioma']];
 const ALTURAS = [2160, 1440, 1080, 720, 480, 360, 240, 144];
-const codigoDe = x => { const n = idiomaDe(x); const h = IDIOMAS.find(([, t]) => t === n); return h ? h[0] : ''; };
+const nomIdioma = c => (IDIOMAS.find(([k]) => k === c) || [, 'Otro idioma'])[1];
+// Idioma por el nombre o el código («eng.srt», «Audio - Español latino.m4a», «sub.es.vtt»)
+const CODIGOS = { spa: /\b(spa|es|esp|lat|latino|castellano|español|espanol|spanish)\b/i, eng: /\b(eng|en|ingl[eé]s|english)\b/i, por: /\b(por|pt|br|portugu[eé]s|portuguese)\b/i, fra: /\b(fra|fre|fr|franc[eé]s|french)\b/i,
+  ita: /\b(ita|it|italian[oa]?)\b/i, deu: /\b(deu|ger|de|alem[aá]n|german)\b/i, jpn: /\b(jpn|ja|jap|japon[eé]s|japanese)\b/i, kor: /\b(kor|ko|coreano|korean)\b/i, zho: /\b(zho|chi|zh|chino|chinese)\b/i, rus: /\b(rus|ru|ruso|russian)\b/i };
+const codigoDe = x => { const t = (typeof x === 'string' ? x : [x.c || x.lang, x.l || x.label].join(' ')).replace(/[._-]+/g, ' '); const h = Object.entries(CODIGOS).find(([, re]) => re.test(t)); return h ? h[0] : ''; };
 async function editarPistas(f) {
-  ventana('<h3>Pistas y calidades</h3><p>Cargando…</p>', null, '', false, 'Cerrar');
+  ventana('<h3>Audio, subtítulos y calidades</h3><p>Cargando…</p>', null, '', false, 'Cerrar');
   let r; try { r = await api('/api/admin', { op: 'pistas-ver', id: f.id }); } catch (e) { $('#dlgErr').textContent = e.message; return; }
-  const m = r.man || {}, porArchivo = {};
-  (m.audios || []).slice(1).forEach(a => a.file && (porArchivo[a.file] = { t: 'audio', label: a.label, lang: a.lang }));
-  (m.subs || []).forEach(s => porArchivo[s.file] = { t: 'sub', label: s.label, lang: s.lang });
-  (m.calidades || []).forEach(q => porArchivo[q.file] = { t: 'cal', alto: q.alto });
-  (m.ignorar || []).forEach(n => porArchivo[n] = { t: 'no' });
+  const m = r.man || {}, elegido = {};
+  // Lo que ya dice el pistas.json
+  (m.audios || []).slice(1).forEach(a => a.file && (elegido[a.file] = 'a:' + (a.lang && a.lang !== 'und' ? codigoDe({ c: a.lang }) || a.lang : codigoDe(a.label || ''))));
+  (m.subs || []).forEach(t => elegido[t.file] = 's:' + (t.lang && t.lang !== 'und' ? codigoDe({ c: t.lang }) || t.lang : codigoDe(t.label || '')));
+  (m.calidades || []).forEach(q => elegido[q.file] = 'q:' + q.alto);
+  (m.ignorar || []).forEach(n => elegido[n] = 'no');
+  // Lo que se adivina por el nombre de un archivo nuevo
   const adivinar = n => {
-    let q = /^(\d{3,4})p\.mp4$/i.exec(n); if (q) return { t: 'cal', alto: +q[1] };
-    if (/\.(srt|vtt|ass|ssa)$/i.test(n)) { const l = n.replace(/^Subt[ií]tulos - /i, '').replace(/\.[^.]+$/, ''); return { t: 'sub', label: l, lang: codigoDe(l) }; }
-    if (/\.(m4a|mp3|aac|ogg|opus|flac|wav|ac3|eac3|dts|mka|mp2|wma)$/i.test(n)) { const l = n.replace(/^Audio - /i, '').replace(/\.[^.]+$/, ''); return { t: 'audio', label: l, lang: codigoDe(l) }; }
-    if (/\.(mp4|m4v|webm|mov|mkv)$/i.test(n)) { q = /(2160|1440|1080|720|480|360|240|144)/.exec(n); return { t: 'cal', alto: q ? +q[1] : 720 }; }
-    return { t: 'no' };
+    let q = /^(\d{3,4})p\.mp4$/i.exec(n); if (q) return 'q:' + q[1];
+    if (/\.(srt|vtt|ass|ssa)$/i.test(n)) return 's:' + codigoDe(n);
+    if (/\.(m4a|mp3|aac|ogg|opus|flac|wav|ac3|eac3|dts|mka|mp2|wma)$/i.test(n)) return 'a:' + codigoDe(n);
+    if (/\.(mp4|m4v|webm|mov|mkv)$/i.test(n)) { q = /(2160|1440|1080|720|480|360|240|144)/.exec(n); return 'q:' + (q ? q[1] : 720); }
+    return 'no';
   };
-  const ops = (ls, val) => ls.map(([v, t]) => `<option value="${esc(String(v))}"${String(v) === String(val) ? ' selected' : ''}>${esc(t)}</option>`).join('');
-  const a0 = (m.audios || [])[0] || {};
-  const fila = (n, d, size) => `<div class="pfila" data-f="${esc(n)}"><div class="pn" title="${esc(n)}">${esc(n)}${size ? `<small>${tam(size)}</small>` : ''}</div>
-    <select class="t pt">${ops([['audio', 'Audio'], ['sub', 'Subtítulos'], ['cal', 'Calidad'], ['no', 'No usar']], d.t)}</select>
-    <select class="t pl">${ops(IDIOMAS, d.lang || '')}</select><input class="t pe" placeholder="Nombre (opcional)" maxlength="60" value="${esc(d.label || '')}">
-    <select class="t pa">${ops(ALTURAS.map(a => [a, a === 2160 ? '4K' : a + 'p']), d.alto || 720)}</select></div>`;
-  box.classList.add('ancho');
-  box.innerHTML = `<h3>Pistas y calidades</h3><p>«${esc(tituloDe(f))}»: archivos de su carpeta «${esc(r.carpeta)}» en Drive. Elige qué es cada uno; el nombre es opcional (si lo dejas vacío se usa el idioma).</p>
-    <div class="pfila fija"><div class="pn" title="La pista que viene dentro del video">Audio del video</div><select class="t pt" disabled><option>Audio</option></select><select class="t pl" id="a0l">${ops(IDIOMAS, a0.lang ? codigoDe({ c: a0.lang, l: a0.label }) || a0.lang : codigoDe(a0.label || ''))}</select><input class="t pe" id="a0e" placeholder="Nombre (opcional)" maxlength="60" value="${esc(a0.label || '')}"></div>
-    <div class="plista">${r.archivos.length ? r.archivos.map(x => fila(x.nombre, porArchivo[x.nombre] || adivinar(x.nombre), x.size)).join('') : '<p>La carpeta todavía no tiene archivos. Súbelos con «Agregar audio o subtítulos» o directo en Drive.</p>'}</div>
-    <p class="nota">Puedes subir tus propias calidades a esta carpeta desde Drive (por ejemplo «720p.mp4»): el robot no las vuelve a hacer y solo saca audios y subtítulos. Un audio que el navegador no lee (AC3, DTS…) lo convierte el robot en unos minutos.</p>
-    <div class="err" id="dlgErr"></div><div class="acts"><button class="sec" type="button" id="dlgSub">Subir archivo</button><span style="flex:1"></span><button class="sec" type="button" id="dlgNo">Cancelar</button><button type="button" id="dlgOk">Guardar</button></div>`;
-  const ver = row => { const t = row.querySelector('.pt').value; row.dataset.t = t; };
-  box.querySelectorAll('.plista .pfila').forEach(row => { ver(row); row.querySelector('.pt').onchange = () => ver(row); });
-  box.querySelector('#dlgNo').onclick = cerrarDlg;
-  box.querySelector('#dlgSub').onclick = () => subirPista(f);
-  box.querySelector('#dlgOk').onclick = async () => {
+  const opciones = val => `<optgroup label="Audio">${IDIOMAS.map(([c, t]) => `<option value="a:${c}"${val === 'a:' + c ? ' selected' : ''}>Audio en ${t.toLowerCase()}</option>`).join('')}</optgroup>
+    <optgroup label="Subtítulos">${IDIOMAS.map(([c, t]) => `<option value="s:${c}"${val === 's:' + c ? ' selected' : ''}>Subtítulos en ${t.toLowerCase()}</option>`).join('')}</optgroup>
+    <optgroup label="Calidad de video">${ALTURAS.map(a => `<option value="q:${a}"${val === 'q:' + a ? ' selected' : ''}>Video en ${a === 2160 ? '4K' : a + 'p'}</option>`).join('')}</optgroup>
+    <option value="no"${val === 'no' ? ' selected' : ''}>No usar</option>`;
+  const a0 = (m.audios || [])[0] || {}, a0c = a0.lang && a0.lang !== 'und' ? codigoDe({ c: a0.lang }) : codigoDe(a0.label || '');
+  const ultimo = { n: null };
+  const pintar = () => {
+    box.classList.add('ancho');
+    box.innerHTML = `<h3>Audio, subtítulos y calidades</h3><p>«${esc(tituloDe(f))}». Elige qué es cada archivo de su carpeta «${esc(r.carpeta)}» en Drive.</p>
+      <div class="plista">
+        <div class="pfila fija"><div class="pn">Audio original <small>(dentro del video)</small></div><select class="t" id="a0">${IDIOMAS.map(([c, t]) => `<option value="${c}"${c === a0c ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+        ${r.archivos.map(x => `<div class="pfila${x.nombre === ultimo.n ? ' nuevo' : ''}" data-f="${esc(x.nombre)}"><div class="pn" title="${esc(x.nombre)}">${esc(x.nombre)}${x.size ? `<small>${tam(x.size)}</small>` : ''}</div><select class="t">${opciones(elegido[x.nombre] || adivinar(x.nombre))}</select></div>`).join('')}
+        ${r.archivos.length ? '' : '<p>La carpeta todavía no tiene archivos: sube audios, subtítulos o tus propias calidades.</p>'}
+      </div>
+      <div class="progreso hidden" id="pp"><i></i></div>
+      <p class="nota">Puedes subir aquí o directo en Drive. Tus calidades no se vuelven a hacer: el robot solo saca audios y subtítulos. Un audio que el navegador no lee (AC3, DTS…) lo convierte el robot en unos minutos.</p>
+      <div class="err" id="dlgErr"></div><div class="acts"><input type="file" id="pf" multiple hidden accept=".srt,.vtt,.ass,.ssa,.m4a,.mp3,.aac,.ac3,.eac3,.dts,.mka,.ogg,.opus,.flac,.wav,.mp4,.m4v,.webm,.mov,.mkv"><button class="sec" type="button" id="dlgSub">Subir archivos</button><span style="flex:1"></span><button class="sec" type="button" id="dlgNo">Cancelar</button><button type="button" id="dlgOk">Guardar</button></div>`;
+    box.querySelectorAll('.plista .pfila[data-f] select').forEach(sel => sel.onchange = () => elegido[sel.closest('.pfila').dataset.f] = sel.value);
+    box.querySelector('#dlgNo').onclick = cerrarDlg;
+    box.querySelector('#dlgSub').onclick = () => $('#pf').click();
+    box.querySelector('#pf').onchange = subir;
+    box.querySelector('#dlgOk').onclick = guardar;
+  };
+  async function subir() {
+    const files = [...$('#pf').files]; if (!files.length) return;
+    const err = $('#dlgErr'), bar = $('#pp'); err.textContent = ''; $('#dlgSub').disabled = $('#dlgOk').disabled = true; bar.classList.remove('hidden');
+    try {
+      for (const [k, file] of files.entries()) {
+        const u = await api('/api/subir', { id: f.id, tipo: 'archivo', nombre: file.name, size: file.size });
+        await new Promise((ok, no) => {
+          const x = new XMLHttpRequest(); x.open('PUT', u.url);
+          x.upload.onprogress = e => { if (e.lengthComputable) bar.querySelector('i').style.width = ((k + e.loaded / e.total) / files.length * 100) + '%'; };
+          x.onload = () => x.status < 300 ? ok() : no(new Error('Drive rechazó la subida (' + x.status + ').'));
+          x.onerror = () => no(new Error('Se cortó la subida.')); x.send(file);
+        });
+        if (!r.archivos.some(a => a.nombre === u.nombre)) r.archivos.push({ nombre: u.nombre, size: file.size });
+        ultimo.n = u.nombre; delete elegido[u.nombre];
+      }
+      pintar(); msg(files.length > 1 ? files.length + ' archivos subidos: elige qué es cada uno y guarda.' : 'Subido: elige qué es y guarda.');
+    } catch (e) { err.textContent = e.message; $('#dlgSub').disabled = $('#dlgOk').disabled = false; bar.classList.add('hidden'); }
+  }
+  async function guardar() {
     const ok = $('#dlgOk'), err = $('#dlgErr'); ok.disabled = true; err.textContent = '';
-    const nom = (row, lang) => row.querySelector('.pe').value.trim() || (IDIOMAS.find(([c]) => c === lang && c) || [, ''])[1];
-    const p = { audio0: { lang: $('#a0l').value, label: $('#a0e').value.trim() || (IDIOMAS.find(([c]) => c === $('#a0l').value && c) || [, ''])[1] }, audios: [], subs: [], calidades: [], ignorar: [] };
-    const altos = new Set();
-    for (const row of box.querySelectorAll('.plista .pfila')) {
-      const file = row.dataset.f, t = row.querySelector('.pt').value, lang = row.querySelector('.pl').value;
-      if (t === 'audio') p.audios.push({ file, lang, label: nom(row, lang) });
-      else if (t === 'sub') p.subs.push({ file, lang, label: nom(row, lang) });
-      else if (t === 'cal') { const alto = +row.querySelector('.pa').value; if (altos.has(alto)) { err.textContent = 'Hay dos archivos marcados como ' + alto + 'p.'; ok.disabled = false; return; } altos.add(alto); p.calidades.push({ file, alto }); }
+    const p = { audio0: { lang: $('#a0').value, label: nomIdioma($('#a0').value) }, audios: [], subs: [], calidades: [], ignorar: [] }, altos = new Set();
+    for (const row of box.querySelectorAll('.plista .pfila[data-f]')) {
+      const file = row.dataset.f, [t, v] = row.querySelector('select').value.split(':');
+      if (t === 'a') p.audios.push({ file, lang: v, label: nomIdioma(v) });
+      else if (t === 's') p.subs.push({ file, lang: v, label: nomIdioma(v) });
+      else if (t === 'q') { if (altos.has(+v)) { err.textContent = 'Hay dos archivos marcados como video en ' + v + 'p.'; ok.disabled = false; return; } altos.add(+v); p.calidades.push({ file, alto: +v }); }
       else p.ignorar.push(file);
     }
     try { listo(await api('/api/admin', { op: 'pistas-guardar', id: f.id, pistas: p })); } catch (e) { err.textContent = e.message; ok.disabled = false; }
-  };
+  }
+  pintar();
 }
 
 // Agregar por enlace (solo admins)

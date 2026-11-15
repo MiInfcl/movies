@@ -238,3 +238,7 @@ table.sols img{width:30px;height:45px;border-radius:4px;object-fit:cover;display
 .pfila[data-t=no] .pn{color:var(--dim)}.pfila.fija .pn{color:var(--mut);font-weight:600}
 #dlg p.nota{font-size:.8rem;color:var(--dim)}
 @media (max-width:640px){.pfila{grid-template-columns:1fr 1fr}.pfila .pn{grid-column:1/-1}}
+
+.pfila{grid-template-columns:minmax(0,1fr) 240px}.pfila.nuevo .pn{color:var(--acc2);font-weight:600}
+.pfila.fija{grid-template-columns:minmax(0,1fr) 240px}
+@media (max-width:640px){.pfila,.pfila.fija{grid-template-columns:1fr}}
