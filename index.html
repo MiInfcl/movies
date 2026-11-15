@@ -10,7 +10,7 @@
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Color+Emoji&display=swap">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -19,12 +19,27 @@
   <p>Inicia sesión para ver la biblioteca.</p>
   <button id="bLogin" type="button" class="sec"><svg class="i" viewBox="0 0 24 24"><path d="M20.5 12.2c0-.7-.1-1.3-.2-1.9H12v3.6h4.8a4.1 4.1 0 0 1-1.8 2.7"/><path d="M12 21c2.4 0 4.5-.8 5.9-2.2l-2.9-2.2c-.8.5-1.8.9-3 .9a5.2 5.2 0 0 1-4.9-3.6H4.1"/><path d="M7.1 13.9a5.4 5.4 0 0 1 0-3.4"/><path d="M12 6.6c1.3 0 2.5.5 3.4 1.3l2.6-2.6A9 9 0 0 0 4.1 8.2l3 2.3A5.2 5.2 0 0 1 12 6.6z"/></svg>Entrar con Google</button>
   <div class="sep">o con usuario</div>
-  <div><label class="l" for="u">Usuario</label><input class="t" id="u" autocomplete="username" autocapitalize="none" required></div>
+  <div><label class="l" for="u">Correo o usuario</label><input class="t" id="u" autocomplete="username" autocapitalize="none" required></div>
   <div><label class="l" for="p">Contraseña</label><input class="t" id="p" type="password" autocomplete="current-password" required></div>
   <button type="submit" id="bEntrar">Entrar</button>
   <div class="lerr" id="eLogin"></div>
+  <p class="alt">¿No tienes cuenta? <a href="#" id="aReg">Regístrate</a></p>
   <p class="acerca">Butaca es una biblioteca personal de películas, música e imágenes guardadas en Google Drive. Se ven desde cualquier navegador, con cambio de calidad, idioma del audio y subtítulos. Con Google solo se usa tu nombre y correo para identificarte.</p>
   <p class="legal"><a href="privacidad.html">Política de privacidad</a> · <a href="terminos.html">Términos de uso</a></p>
+</form>
+
+<form class="login hidden" id="vReg" autocomplete="on">
+  <div class="marca"><img src="logo.svg" alt="">Crear cuenta</div>
+  <p>Con tu cuenta puedes ver la biblioteca, seguir donde quedaste y pedir películas.</p>
+  <div><label class="l" for="rn">Nombre</label><input class="t" id="rn" autocomplete="name" maxlength="60" required></div>
+  <div><label class="l" for="rc">Correo</label><input class="t" id="rc" type="email" autocomplete="email" autocapitalize="none" maxlength="80" required></div>
+  <div><label class="l" for="rp">Contraseña</label><input class="t" id="rp" type="password" autocomplete="new-password" maxlength="128" required></div>
+  <ul class="reglas" id="reglas"><li data-r="largo">Al menos 8 caracteres</li><li data-r="may">Una mayúscula</li><li data-r="min">Una minúscula</li><li data-r="num">Un número</li><li data-r="esp">Un carácter especial (!, #, %, …)</li></ul>
+  <div><label class="l" for="rp2">Repite la contraseña</label><input class="t" id="rp2" type="password" autocomplete="new-password" maxlength="128" required></div>
+  <input class="trampa" id="rweb" tabindex="-1" autocomplete="off" aria-hidden="true">
+  <button type="submit" id="bReg">Crear cuenta</button>
+  <div class="lerr" id="eReg"></div>
+  <p class="alt">¿Ya tienes cuenta? <a href="#" id="aEnt">Entra</a></p>
 </form>
 
 <div id="vApp" class="hidden">
@@ -58,7 +73,7 @@
 
 <script src="config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="reproductor.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="reproductor.js?v=11"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

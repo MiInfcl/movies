@@ -208,3 +208,9 @@ table.sols img{width:30px;height:45px;border-radius:4px;object-fit:cover;display
 .hero .puntos button{width:9px;height:9px;padding:0;border-radius:5px;background:rgba(255,255,255,.35);border:0;transition:width .25s}.hero .puntos button.on{width:26px;background:#fff}
 @media (max-width:700px){.hero{height:auto;min-height:380px}.hero .cont{padding:22px 18px 40px;align-items:flex-end}.hero .mini{display:none}.hero p{-webkit-line-clamp:3}.hero .velo{background:linear-gradient(0deg,rgba(4,10,28,.97) 15%,rgba(4,10,28,.5) 70%,rgba(4,10,28,.2))}
   .fsel select{min-width:0;width:100%}.fsel{flex:1 1 40%}}
+
+/* Registro */
+.login .alt{text-align:center;font-size:.86rem}.login .alt a{color:var(--acc2);font-weight:600}
+.reglas{list-style:none;margin:-4px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:.78rem;color:var(--mut)}
+.reglas li:before{content:"○";margin-right:6px;color:var(--dim)}.reglas li.ok{color:var(--ok)}.reglas li.ok:before{content:"●";color:var(--ok)}
+.trampa{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
