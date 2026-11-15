@@ -83,7 +83,7 @@ function durTxt(seg) { if (!seg) return ''; const m = Math.round(seg / 60); retu
 // Bandera de un idioma (por su nombre o código): «Español latino» -> México, «Inglés» -> Estados Unidos...
 const bandera = l => Reproductor.bandera(l);
 const lab = x => typeof x === 'string' ? x : x.l;
-const listaIdiomas = ls => { const vis = new Set(); return ls.filter(x => !vis.has(lab(x)) && vis.add(lab(x))).map(x => (bandera(x) ? bandera(x) + ' ' : '') + lab(x)).join(', '); };
+const listaIdiomas = ls => [...new Set(ls.map(x => idiomaDe(x) || lab(x)))].map(conBand).join(', ');
 const edadTxt = e => e == null ? '' : e === 0 ? 'TP' : '+' + e;
 function metaTxt(f) {
   const p = f.peli || {}, dur = p.duracion ? p.duracion * 60 : f.video && f.video.duracion;
@@ -125,8 +125,7 @@ async function render(sinCargando) {
 const LENGUAS = { spa: 'Español', es: 'Español', eng: 'Inglés', en: 'Inglés', por: 'Portugués', pt: 'Portugués', fra: 'Francés', fre: 'Francés', fr: 'Francés', ita: 'Italiano', it: 'Italiano', deu: 'Alemán', ger: 'Alemán', de: 'Alemán', jpn: 'Japonés', ja: 'Japonés', kor: 'Coreano', ko: 'Coreano', zho: 'Chino', chi: 'Chino', zh: 'Chino', rus: 'Ruso', ru: 'Ruso' };
 function idiomaDe(x) {
   const l = typeof x === 'string' ? x : x.l || x.label || '', c = typeof x === 'string' ? '' : x.c || x.lang || '';
-  if (/latin|lat\b|419|mex/i.test(l)) return 'Español latino';
-  if (/castellano|españa/i.test(l)) return 'Español de España';
+  if (/latin|lat\b|419|mex|castellano|españa/i.test(l)) return 'Español';   // latino, México y España: un solo español
   if (LENGUAS[c]) return LENGUAS[c];
   const m = Object.entries({ 'Español': /espa[ñn]ol|spanish/i, 'Inglés': /ingl[eéè]s|english/i, 'Portugués': /portugu/i, 'Francés': /franc[eé]s|french/i, 'Italiano': /italian/i, 'Alemán': /alem[aá]n|german/i, 'Japonés': /japon|japanese/i, 'Coreano': /corean|korean/i }).find(([, re]) => re.test(l));
   return m ? m[0] : null;
@@ -135,6 +134,7 @@ const conBand = n => (bandera(n) ? bandera(n) + ' ' : '') + n;
 const ORDENES = { nombre: 'Nombre', año: 'Año', nota: 'Puntuación', duracion: 'Duración', reciente: 'Recién agregadas', edad: 'Clasificación' };
 let vista = (() => { try { return JSON.parse(localStorage.getItem('butaca-vista')) || {}; } catch { return {}; } })();
 vista = { orden: 'nombre', dir: 1, genero: '', audio: '', subs: '', edad: '', ...vista };
+['audio', 'subs'].forEach(k => { if (/^Español/.test(vista[k])) vista[k] = 'Español'; });
 const guardarVista = () => { try { localStorage.setItem('butaca-vista', JSON.stringify(vista)); } catch {} };
 const durDe = f => (f.peli && f.peli.duracion ? f.peli.duracion * 60 : f.video && f.video.duracion) || 0;
 function pintarFiltros() {
@@ -143,15 +143,22 @@ function pintarFiltros() {
   const generos = set(p => p.generos || []);
   const audios = set(p => p.idiomas ? p.idiomas.audio.map(idiomaDe) : []);
   const subs = set(p => p.idiomas ? p.idiomas.subs.map(idiomaDe) : []);
-  const sel = (id, titulo, ops, val, fmt = x => x) => `<label class="fsel"><span>${titulo}</span><select id="${id}"><option value="">${id === 'fEdad' ? 'Todas' : 'Todos'}</option>${ops.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(fmt(o))}</option>`).join('')}</select></label>`;
-  el.innerHTML = `<label class="fsel"><span>Ordenar por</span><select id="fOrden">${Object.entries(ORDENES).map(([k, t]) => `<option value="${k}"${k === vista.orden ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
-    <button type="button" class="sec dir" id="fDir" title="${vista.dir > 0 ? 'Ascendente' : 'Descendente'}">${vista.dir > 0 ? '↑' : '↓'}</button>
-    ${sel('fGen', 'Género', generos, vista.genero)}${sel('fAud', 'Audio', audios, vista.audio, conBand)}${sel('fSub', 'Subtítulos', subs, vista.subs, conBand)}
-    <label class="fsel"><span>Edad</span><select id="fEdad"><option value="">Todas</option>${[[0, 'Todo público'], [7, 'Hasta +7'], [13, 'Hasta +13'], [16, 'Hasta +16']].map(([v, t]) => `<option value="${v}"${String(v) === String(vista.edad) ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
-    <button type="button" class="sec limpiar${vista.genero || vista.audio || vista.subs || vista.edad !== '' ? '' : ' hidden'}" id="fLimpiar">Quitar filtros</button>`;
-  const cambio = () => { vista.orden = $('#fOrden').value; vista.genero = $('#fGen').value; vista.audio = $('#fAud').value; vista.subs = $('#fSub').value; vista.edad = $('#fEdad').value; guardarVista(); pintarFiltros(); pintarGrid(); };
+  const sel = (id, titulo, ops, val, fmt = x => x) => `<select id="${id}" class="fchip${val !== '' ? ' on' : ''}" title="${titulo}" aria-label="${titulo}"><option value="">${titulo}</option>${ops.map(o => `<option value="${esc(o)}"${String(o) === String(val) ? ' selected' : ''}>${esc(fmt(o))}</option>`).join('')}</select>`;
+  const hay = vista.genero || vista.audio || vista.subs || vista.edad !== '';
+  el.innerHTML = `<div class="fizq">${sel('fGen', 'Género', generos, vista.genero)}${sel('fAud', 'Audio', audios, vista.audio, conBand)}${sel('fSub', 'Subtítulos', subs, vista.subs, conBand)}${sel('fEdad', 'Edad', ['0', '7', '13', '16'], vista.edad, v => v === '0' ? 'Todo público' : 'Hasta +' + v)}
+    <button type="button" class="limpiar${hay ? '' : ' hidden'}" id="fLimpiar">Quitar filtros</button></div>
+    <button type="button" class="ico orden" id="fOrden" title="Ordenar: ${ORDENES[vista.orden] || 'Nombre'}, ${vista.dir > 0 ? 'ascendente' : 'descendente'}" aria-label="Ordenar">${I(vista.dir > 0 ? '<path d="M7 4v16M3.5 16.5 7 20l3.5-3.5M13 6h4M13 11h6M13 16h8"/>' : '<path d="M7 4v16M3.5 16.5 7 20l3.5-3.5M13 6h8M13 11h6M13 16h4"/>')}<span>${ORDENES[vista.orden] || 'Nombre'}</span></button>`;
+  const cambio = () => { vista.genero = $('#fGen').value; vista.audio = $('#fAud').value; vista.subs = $('#fSub').value; vista.edad = $('#fEdad').value; guardarVista(); pintarFiltros(); pintarGrid(); };
   el.querySelectorAll('select').forEach(x => x.onchange = cambio);
-  $('#fDir').onclick = () => { vista.dir = -vista.dir; guardarVista(); pintarFiltros(); pintarGrid(); };
+  const ok = '<svg class="i chk" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>';
+  $('#fOrden').onclick = e => {
+    e.stopPropagation();
+    const acts = {};
+    Object.keys(ORDENES).forEach(k => acts['o-' + k] = () => { vista.orden = k; guardarVista(); pintarFiltros(); pintarGrid(); });
+    acts.asc = () => { vista.dir = 1; guardarVista(); pintarFiltros(); pintarGrid(); }; acts.desc = () => { vista.dir = -1; guardarVista(); pintarFiltros(); pintarGrid(); };
+    abrirMenu($('#fOrden'), '<div class="mtit">Ordenar por</div>' + Object.entries(ORDENES).map(([k, t]) => `<button data-a="o-${k}" class="${k === vista.orden ? 'on' : ''}">${t}${k === vista.orden ? ok : ''}</button>`).join('')
+      + `<hr><button data-a="asc" class="${vista.dir > 0 ? 'on' : ''}">Ascendente${vista.dir > 0 ? ok : ''}</button><button data-a="desc" class="${vista.dir < 0 ? 'on' : ''}">Descendente${vista.dir < 0 ? ok : ''}</button>`, acts);
+  };
   $('#fLimpiar').onclick = () => { Object.assign(vista, { genero: '', audio: '', subs: '', edad: '' }); guardarVista(); pintarFiltros(); pintarGrid(); };
 }
 function visibles() {
@@ -274,13 +281,14 @@ function abrirMenu(anchor, html, acts) {
 function menuItem(f, anchor) {
   const v = kindOf(f) === 'video';
   abrirMenu(anchor, '<button data-a="ren">Renombrar</button><button data-a="mov">Mover a…</button><button data-a="dup">Duplicar</button>'
-    + (v ? '<button data-a="pis">Agregar audio o subtítulos</button>' : '')
+    + (v ? '<button data-a="pis">Agregar audio o subtítulos</button><button data-a="edp">Editar pistas y calidades</button>' : '')
     + (v && f.peli ? `<button data-a="des">${f.peli.destacada ? 'Quitar de destacadas' : 'Destacar en el carrusel'}</button>` : '')
     + `<button data-a="ocu">${f.oculto ? 'Mostrar a todos' : 'Ocultar'}</button><hr><button data-a="del" class="bad">Eliminar</button>`, {
     ren: () => renombrar({ id: f.id }, f.nombre, true),
     mov: () => mover({ id: f.id }, f.nombre),
     dup: () => ventana('<h3>Duplicar</h3><p>Se creará una copia de «' + esc(f.nombre) + '» en la misma carpeta de su Drive, con sus pistas.</p>', async () => listo(await api('/api/admin', { op: 'duplicar', id: f.id })), 'Duplicar'),
     pis: () => subirPista(f),
+    edp: () => editarPistas(f),
     des: async () => { try { msg((await api('/api/admin', { op: 'destacar', nombre: f.nombre, valor: !f.peli.destacada })).mensaje); render(true); } catch (e) { msg(e.message, true); } },
     ocu: () => ocultar({ id: f.id }, !f.oculto),
     del: () => eliminar({ id: f.id }, f.nombre, false)
@@ -366,6 +374,57 @@ function subirPista(f) {
   }, 'Subir');
   $('#tp').onclick = e => { const b = e.target.closest('button'); if (!b) return; tipo = b.dataset.t; $('#tp').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
     $('#pf').accept = tipo === 'sub' ? '.srt,.vtt,.ass,.ssa' : '.m4a,.mp3,.aac,.ac3,.eac3,.dts,.mka,.ogg,.opus,.flac,.wav'; };
+}
+
+// ---------- Editar pistas y calidades (admins): qué es cada archivo de la carpeta del video ----------
+const IDIOMAS = [['spa', 'Español'], ['eng', 'Inglés'], ['por', 'Portugués'], ['fra', 'Francés'], ['ita', 'Italiano'], ['deu', 'Alemán'], ['jpn', 'Japonés'], ['kor', 'Coreano'], ['zho', 'Chino'], ['rus', 'Ruso'], ['', 'Otro']];
+const ALTURAS = [2160, 1440, 1080, 720, 480, 360, 240, 144];
+const codigoDe = x => { const n = idiomaDe(x); const h = IDIOMAS.find(([, t]) => t === n); return h ? h[0] : ''; };
+async function editarPistas(f) {
+  ventana('<h3>Pistas y calidades</h3><p>Cargando…</p>', null, '', false, 'Cerrar');
+  let r; try { r = await api('/api/admin', { op: 'pistas-ver', id: f.id }); } catch (e) { $('#dlgErr').textContent = e.message; return; }
+  const m = r.man || {}, porArchivo = {};
+  (m.audios || []).slice(1).forEach(a => a.file && (porArchivo[a.file] = { t: 'audio', label: a.label, lang: a.lang }));
+  (m.subs || []).forEach(s => porArchivo[s.file] = { t: 'sub', label: s.label, lang: s.lang });
+  (m.calidades || []).forEach(q => porArchivo[q.file] = { t: 'cal', alto: q.alto });
+  (m.ignorar || []).forEach(n => porArchivo[n] = { t: 'no' });
+  const adivinar = n => {
+    let q = /^(\d{3,4})p\.mp4$/i.exec(n); if (q) return { t: 'cal', alto: +q[1] };
+    if (/\.(srt|vtt|ass|ssa)$/i.test(n)) { const l = n.replace(/^Subt[ií]tulos - /i, '').replace(/\.[^.]+$/, ''); return { t: 'sub', label: l, lang: codigoDe(l) }; }
+    if (/\.(m4a|mp3|aac|ogg|opus|flac|wav|ac3|eac3|dts|mka|mp2|wma)$/i.test(n)) { const l = n.replace(/^Audio - /i, '').replace(/\.[^.]+$/, ''); return { t: 'audio', label: l, lang: codigoDe(l) }; }
+    if (/\.(mp4|m4v|webm|mov|mkv)$/i.test(n)) { q = /(2160|1440|1080|720|480|360|240|144)/.exec(n); return { t: 'cal', alto: q ? +q[1] : 720 }; }
+    return { t: 'no' };
+  };
+  const ops = (ls, val) => ls.map(([v, t]) => `<option value="${esc(String(v))}"${String(v) === String(val) ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  const a0 = (m.audios || [])[0] || {};
+  const fila = (n, d, size) => `<div class="pfila" data-f="${esc(n)}"><div class="pn" title="${esc(n)}">${esc(n)}${size ? `<small>${tam(size)}</small>` : ''}</div>
+    <select class="t pt">${ops([['audio', 'Audio'], ['sub', 'Subtítulos'], ['cal', 'Calidad'], ['no', 'No usar']], d.t)}</select>
+    <select class="t pl">${ops(IDIOMAS, d.lang || '')}</select><input class="t pe" placeholder="Nombre (opcional)" maxlength="60" value="${esc(d.label || '')}">
+    <select class="t pa">${ops(ALTURAS.map(a => [a, a === 2160 ? '4K' : a + 'p']), d.alto || 720)}</select></div>`;
+  box.classList.add('ancho');
+  box.innerHTML = `<h3>Pistas y calidades</h3><p>«${esc(tituloDe(f))}»: archivos de su carpeta «${esc(r.carpeta)}» en Drive. Elige qué es cada uno; el nombre es opcional (si lo dejas vacío se usa el idioma).</p>
+    <div class="pfila fija"><div class="pn">Audio que viene dentro del video</div><select class="t pt" disabled><option>Audio</option></select><select class="t pl" id="a0l">${ops(IDIOMAS, a0.lang ? codigoDe({ c: a0.lang, l: a0.label }) || a0.lang : codigoDe(a0.label || ''))}</select><input class="t pe" id="a0e" placeholder="Nombre (opcional)" maxlength="60" value="${esc(a0.label || '')}"></div>
+    <div class="plista">${r.archivos.length ? r.archivos.map(x => fila(x.nombre, porArchivo[x.nombre] || adivinar(x.nombre), x.size)).join('') : '<p>La carpeta todavía no tiene archivos. Súbelos con «Agregar audio o subtítulos» o directo en Drive.</p>'}</div>
+    <p class="nota">Puedes subir tus propias calidades a esta carpeta desde Drive (por ejemplo «720p.mp4»): el robot no las vuelve a hacer y solo saca audios y subtítulos. Un audio que el navegador no lee (AC3, DTS…) lo convierte el robot en unos minutos.</p>
+    <div class="err" id="dlgErr"></div><div class="acts"><button class="sec" type="button" id="dlgSub">Subir archivo</button><span style="flex:1"></span><button class="sec" type="button" id="dlgNo">Cancelar</button><button type="button" id="dlgOk">Guardar</button></div>`;
+  const ver = row => { const t = row.querySelector('.pt').value; row.dataset.t = t; };
+  box.querySelectorAll('.plista .pfila').forEach(row => { ver(row); row.querySelector('.pt').onchange = () => ver(row); });
+  box.querySelector('#dlgNo').onclick = cerrarDlg;
+  box.querySelector('#dlgSub').onclick = () => subirPista(f);
+  box.querySelector('#dlgOk').onclick = async () => {
+    const ok = $('#dlgOk'), err = $('#dlgErr'); ok.disabled = true; err.textContent = '';
+    const nom = (row, lang) => row.querySelector('.pe').value.trim() || (IDIOMAS.find(([c]) => c === lang && c) || [, ''])[1];
+    const p = { audio0: { lang: $('#a0l').value, label: $('#a0e').value.trim() || (IDIOMAS.find(([c]) => c === $('#a0l').value && c) || [, ''])[1] }, audios: [], subs: [], calidades: [], ignorar: [] };
+    const altos = new Set();
+    for (const row of box.querySelectorAll('.plista .pfila')) {
+      const file = row.dataset.f, t = row.querySelector('.pt').value, lang = row.querySelector('.pl').value;
+      if (t === 'audio') p.audios.push({ file, lang, label: nom(row, lang) });
+      else if (t === 'sub') p.subs.push({ file, lang, label: nom(row, lang) });
+      else if (t === 'cal') { const alto = +row.querySelector('.pa').value; if (altos.has(alto)) { err.textContent = 'Hay dos archivos marcados como ' + alto + 'p.'; ok.disabled = false; return; } altos.add(alto); p.calidades.push({ file, alto }); }
+      else p.ignorar.push(file);
+    }
+    try { listo(await api('/api/admin', { op: 'pistas-guardar', id: f.id, pistas: p })); } catch (e) { err.textContent = e.message; ok.disabled = false; }
+  };
 }
 
 // Agregar por enlace (solo admins)

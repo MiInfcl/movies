@@ -102,7 +102,7 @@ const hms = t => { if (!isFinite(t)) t = 0; t = Math.floor(t); const h = Math.fl
 const pref = { get(k, d) { try { const v = localStorage.getItem('rp-' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('rp-' + k, JSON.stringify(v)); } catch {} } };
 
 // Bandera de un idioma, por su nombre («Español latino») o código («spa»)
-const FLAGS = [[/latin|lat\b|mex|es-?419|es-?mx/i, 'MX'], [/castellano|españa|es-?es/i, 'ES'], [/^(es|spa)$|espa[ñn]ol|spanish/i, 'ES'], [/brasil|pt-?br/i, 'BR'], [/^(pt|por)$|portugu/i, 'PT'],
+const FLAGS = [[/latin|lat\b|mex|es-?419|es-?mx|castellano|españa|es-?es/i, 'ES'], [/^(es|spa)$|espa[ñn]ol|spanish/i, 'ES'], [/brasil|pt-?br/i, 'BR'], [/^(pt|por)$|portugu/i, 'PT'],
   [/brit|uk\b|en-?gb/i, 'GB'], [/^(en|eng)$|ingl[eéè]s|english/i, 'US'], [/^(fr|fra|fre)$|franc[eé]s|french/i, 'FR'], [/^(it|ita)$|italian/i, 'IT'], [/^(de|deu|ger)$|alem[aá]n|german/i, 'DE'],
   [/^(ja|jpn)$|japon[eé]s|japanese/i, 'JP'], [/^(ko|kor)$|coreano|korean/i, 'KR'], [/^(zh|chi|zho)$|chino|chinese|mandar/i, 'CN'], [/^(ru|rus)$|ruso|russian/i, 'RU'], [/^(hi|hin)$|hindi/i, 'IN'],
   [/^(ca|cat)$|catal/i, 'ES'], [/^(nl|dut|nld)$|holand|dutch/i, 'NL'], [/^(sv|swe)$|sueco|swedish/i, 'SE'], [/^(pl|pol)$|polaco|polish/i, 'PL'], [/^(tr|tur)$|turco|turkish/i, 'TR'], [/^(ar|ara)$|[aá]rabe|arabic/i, 'SA']];

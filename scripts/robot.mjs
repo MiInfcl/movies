@@ -50,7 +50,8 @@ function probe(file) { return JSON.parse(run('ffprobe', ['-v', 'error', '-print_
 const clase = (w, h) => w >= 3200 || h >= 1800 ? 2160 : w >= 2200 || h >= 1300 ? 1440 : w >= 1700 || h >= 950 ? 1080 : w >= 1150 || h >= 650 ? 720 : w >= 760 || h >= 420 ? 480 : w >= 560 || h >= 320 ? 360 : w >= 380 || h >= 220 ? 240 : 144;
 const etiqueta = (s, n, tipo) => (s.tags && s.tags.title) || LANG[s.tags && s.tags.language] || (s.tags && s.tags.language && s.tags.language !== 'und' ? s.tags.language : (tipo === 'a' ? 'Audio ' : 'Subtítulos ') + n);
 
-function procesarVideo(file, out, { calidades = true } = {}) {
+// ya: calidades que alguien ya subió a la carpeta (alto -> archivo); esas no se vuelven a hacer
+function procesarVideo(file, out, { calidades = true, ya = new Map() } = {}) {
   fs.mkdirSync(out, { recursive: true });
   const p = probe(file), v = p.streams.find(s => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));
   const aud = p.streams.filter(s => s.codec_type === 'audio'), subs = p.streams.filter(s => s.codec_type === 'subtitle');
@@ -77,7 +78,8 @@ function procesarVideo(file, out, { calidades = true } = {}) {
     man.fuente = { ancho: v.width, alto: v.height, clase: alto, codec: v.codec_name, audio: aud[0]?.codec_name || null };
     const outs = [];
     // Misma calidad que el original, si el navegador no lo puede abrir tal cual (mkv, HEVC, AC3...)
-    if (!(mp4 && compatible)) {
+    for (const [a, f] of ya) man.calidades.push({ alto: a, file: f, subida: true });
+    if (!(mp4 && compatible) && !ya.has(alto)) {
       if (compatible) {   // solo cambiar de envase, sin recomprimir
         // El MP4 reemplaza al original (misma calidad: no tiene sentido guardar las dos copias)
         log('  remux', alto + 'p (reemplaza al original)');
@@ -86,7 +88,7 @@ function procesarVideo(file, out, { calidades = true } = {}) {
         man.reemplazo = rem;
       } else outs.push(alto);
     }
-    for (const a of ALTOS) if (a < alto) outs.push(a);
+    for (const a of ALTOS) if (a < alto && !ya.has(a)) outs.push(a);
     if (outs.length) {
       log('  calidades', outs.map(a => a + 'p').join(' '));
       const fc = `[0:v:0]split=${outs.length}` + outs.map((_, i) => `[s${i}]`).join('') + ';' + outs.map((a, i) => `[s${i}]scale=w='min(${ANCHO[a]},iw)':h=-2:flags=bicubic,format=yuv420p[o${i}]`).join(';');
@@ -101,6 +103,20 @@ function procesarVideo(file, out, { calidades = true } = {}) {
   const { reemplazo, ...guardar } = man;
   fs.writeFileSync(path.join(out, 'pistas.json'), JSON.stringify(guardar, null, 1));
   return man;
+}
+// Si un admin editó las pistas en el panel, sus nombres, idiomas y elecciones se respetan
+function fusionar(out, viejo) {
+  if (!viejo || !viejo.editado) return;
+  const p = path.join(out, 'pistas.json'), m = JSON.parse(fs.readFileSync(p, 'utf8')), fuera = new Set(viejo.ignorar || []);
+  for (const k of ['audios', 'subs']) {
+    const antes = new Map((viejo[k] || []).filter(x => x.file).map(x => [x.file, x]));
+    m[k] = m[k].filter(x => !x.file || !fuera.has(x.file)).map((x, i) => { const o = k === 'audios' && i === 0 ? (viejo.audios || [])[0] : antes.get(x.file); return o ? { ...x, label: o.label, lang: o.lang } : x; });
+    const hay = new Set(m[k].map(x => x.file));
+    for (const o of viejo[k] || []) if (o.file && !hay.has(o.file)) m[k].push(o);
+  }
+  for (const q of viejo.calidades || []) if (!m.calidades.some(x => x.alto === q.alto)) m.calidades.push(q);
+  m.calidades.sort((a, b) => b.alto - a.alto); m.ignorar = viejo.ignorar || []; m.editado = viejo.editado;
+  fs.writeFileSync(p, JSON.stringify(m, null, 1));
 }
 // Cambia el contenido del video por el MP4 y luego le cambia la extensión. Primero el contenido (en el mismo archivo,
 // así conserva su id en Drive y el progreso de cada persona) y después el nombre: si algo se corta a medias, queda un
@@ -185,10 +201,11 @@ async function calidades(cfg) {
       const aux = auxDe(v);
       // ¿Le falta algo? (pistas.json v2, o audios subidos que el navegador no puede reproducir)
       let man = null; if (byPath.has(aux + '/pistas.json')) { try { man = JSON.parse(rc('cat', R + aux + '/pistas.json').stdout); } catch {} }
-      const subidos = files.filter(f => f.Path.startsWith(aux + '/') && /^Audio - .+\.[a-z0-9]+$/i.test(f.Name) && !AUDIO_WEB.test(f.Name));
+      const elegidos = new Set(((man && man.audios) || []).map(a => a.file).filter(Boolean));
+      const subidos = files.filter(f => f.Path.startsWith(aux + '/') && (/^Audio - .+\.[a-z0-9]+$/i.test(f.Name) || elegidos.has(f.Name)) && VIDEO.test(f.Name) === false && !AUDIO_WEB.test(f.Name) && f.Name !== 'pistas.json');
       const sinConvertir = subidos.filter(f => !byPath.has(f.Path.replace(/\.[^.]+$/, '.m4a')));
       const necesita = !man || (man.version || 1) < VERSION;
-      const f0 = man && man.fuente, dup = !necesita && quedan() > 40 * 60e3 && f0 && !/\.(mp4|m4v)$/i.test(v.Name) && f0.codec === 'h264' && (!f0.audio || /^(aac|mp3)$/.test(f0.audio)) && byPath.has(`${aux}/${f0.clase}p.mp4`);
+      const f0 = man && man.fuente, dup = !necesita && quedan() > 40 * 60e3 && f0 && !/\.(mp4|m4v)$/i.test(v.Name) && f0.codec === 'h264' && (!f0.audio || /^(aac|mp3)$/.test(f0.audio)) && byPath.has(`${aux}/${f0.clase}p.mp4`) && (man.calidades || []).some(c => c.file === `${f0.clase}p.mp4` && !c.subida);
       if (dup) {
         log('== copia duplicada:', v.Path);
         const w = fs.mkdtempSync(path.join(TRABAJO, 'd-'));
@@ -209,9 +226,15 @@ async function calidades(cfg) {
       try {
         if (necesita) {
           const local = path.join(w, v.Name); rcv('copyto', R + v.Path, local);
-          const out = path.join(w, '_aux'), man = procesarVideo(local, out);
+          // Calidades que ya están en la carpeta (subidas por el dueño desde su PC, o elegidas en el panel)
+          const ya = new Map(), fuera = new Set((man && man.ignorar) || []);
+          for (const f of files) { const q = f.Path.startsWith(aux + '/') && /^(\d{3,4})p\.mp4$/.exec(f.Name); if (q && !fuera.has(f.Name)) ya.set(+q[1], f.Name); }
+          for (const q of (man && man.calidades) || []) if (q.subida && byPath.has(aux + '/' + q.file)) ya.set(+q.alto, q.file);
+          if (ya.size) log('  ya subidas:', [...ya.keys()].map(a => a + 'p').join(' '));
+          const out = path.join(w, '_aux'), nuevo = procesarVideo(local, out, { ya });
           fs.rmSync(local, { force: true });
-          if (man.reemplazo) reemplazarOriginal(R, v, man.reemplazo, byPath);
+          fusionar(out, man);
+          if (nuevo.reemplazo) reemplazarOriginal(R, v, nuevo.reemplazo, byPath);
           rcv('copy', out, R + aux);
         }
         for (const s of sinConvertir) {
