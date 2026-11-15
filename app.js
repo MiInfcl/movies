@@ -182,7 +182,7 @@ function tarjeta({ f, i }) {
       <div class="poster">${p.caratula ? `<img loading="lazy" alt="" src="${esc(p.caratula)}">` : `<div class="ph">${esc(t)}</div>`}
         ${f.oculto ? '<span class="tag">Oculto</span>' : ''}
         <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas(p.idiomas.subs))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
-        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Acciones">${ICON.more}</button>` : ''}</div>
+        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() || (f.prog && f.prog.t > 0) ? `<button type="button" data-more="${i}" title="Más opciones">${ICON.more}</button>` : ''}</div>
         ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}${f.prog && f.prog.d ? `<span class="prog" title="Visto ${Math.min(100, Math.round(f.prog.t / f.prog.d * 100))} %"><i style="width:${Math.min(100, f.prog.t / f.prog.d * 100)}%"></i></span>` : ''}
       </div><div class="nom" title="${esc(f.nombre)}">${esc(t)}</div></div>`;
 }
@@ -279,9 +279,12 @@ function abrirMenu(anchor, html, acts) {
   menu.onclick = ev => { const a = ev.target.closest('button')?.dataset.a; if (!a) return; cerrarMenu(); acts[a](); };
 }
 function menuItem(f, anchor) {
-  const v = kindOf(f) === 'video';
+  const v = kindOf(f) === 'video', visto = v && f.prog && f.prog.t > 0;
+  const reiniciar = async () => { try { msg((await api('/api/progreso/borrar', { id: f.id })).mensaje); f.prog = null; render(true); } catch (e) { msg(e.message, true); } };
+  if (!esAdmin()) return visto && abrirMenu(anchor, '<button data-a="rei">Restablecer progreso</button>', { rei: reiniciar });
   abrirMenu(anchor, '<button data-a="ren">Renombrar</button><button data-a="mov">Mover a…</button><button data-a="dup">Duplicar</button>'
     + (v ? '<button data-a="ide">Elegir qué película es</button><button data-a="pis">Agregar audio o subtítulos</button><button data-a="edp">Editar pistas y calidades</button>' : '')
+    + (visto ? '<button data-a="rei">Restablecer progreso</button>' : '')
     + (v && f.peli ? `<button data-a="des">${f.peli.destacada ? 'Quitar de destacadas' : 'Destacar en el carrusel'}</button>` : '')
     + `<button data-a="ocu">${f.oculto ? 'Mostrar a todos' : 'Ocultar'}</button><hr><button data-a="del" class="bad">Eliminar</button>`, {
     ren: () => renombrar({ id: f.id }, f.nombre, true),
@@ -289,6 +292,7 @@ function menuItem(f, anchor) {
     dup: () => ventana('<h3>Duplicar</h3><p>Se creará una copia de «' + esc(f.nombre) + '» en la misma carpeta de su Drive, con sus pistas.</p>', async () => listo(await api('/api/admin', { op: 'duplicar', id: f.id })), 'Duplicar'),
     pis: () => subirPista(f),
     edp: () => editarPistas(f),
+    rei: reiniciar,
     ide: () => ventana(`<h3>¿Qué película es?</h3><p>${f.peli && f.peli.titulo ? `Hoy aparece como «${esc(f.peli.titulo)}»${f.peli.año ? ' (' + f.peli.año + ')' : ''}. ` : 'No se reconoció sola. '}Pega el enlace de su página en IMDb, TMDB, Letterboxd, Wikipedia, FilmAffinity u otro sitio, o escribe su título y año.</p>
       <input class="t" id="ide" placeholder="https://www.imdb.com/title/tt…" autocomplete="off" inputmode="url"><p class="nota">Archivo: ${esc(f.nombre)}</p>`,
       async () => { const enlace = $('#ide').value.trim(); if (!enlace) throw new Error('Pega un enlace o escribe el título.'); listo(await api('/api/admin', { op: 'identificar', id: f.id, enlace })); }, 'Buscar'),
