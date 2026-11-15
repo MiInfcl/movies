@@ -333,6 +333,41 @@ $('#bUsuarios').onclick = async () => {
   try { await cargar(); } catch (x) { err.textContent = x.message; }
 };
 
+// Solicitar películas: búsqueda en IMDb (o un enlace de IMDb)
+$('#bPedir').onclick = () => {
+  let elegido = null, t = 0;
+  ventana(`<h3>Solicitar una película</h3><p>Busca por nombre o pega el enlace de IMDb.</p>
+    <input class="t" id="sq" placeholder="Ej.: Interestelar, o https://www.imdb.com/title/tt0816692/" autocomplete="off">
+    <div class="sug" id="sug"></div><h3 style="margin-top:6px;font-size:.95rem">${esAdmin() ? 'Solicitudes de todos' : 'Tus solicitudes'}</h3><div id="sols">Cargando…</div>`, async () => {
+    if (!elegido) throw new Error('Elige una película de la lista.');
+    const r = await api('/api/solicitudes', { op: 'pedir', id: elegido.id }); msg(r.mensaje); elegido = null;
+    $('#sq').value = ''; $('#sug').innerHTML = ''; $('#dlgOk').disabled = false; cargarSols();
+  }, 'Solicitar', false, 'Cerrar');
+  const sug = $('#sug'); let res = [];
+  const pintar = () => { sug.innerHTML = res.map((r, i) => `<button type="button" data-i="${i}" class="${elegido && elegido.id === r.id ? 'on' : ''}">${r.poster ? `<img src="${esc(r.poster)}" alt="" loading="lazy">` : '<span class="np"></span>'}<span>${esc(r.titulo)}${r.año ? ' (' + r.año + ')' : ''}<small>${esc(r.tipo)}${r.actores ? ' · ' + esc(r.actores) : ''}</small></span></button>`).join('') || (($('#sq').value.trim().length > 1) ? '<p>Sin resultados.</p>' : ''); };
+  $('#sq').addEventListener('input', () => {
+    clearTimeout(t); elegido = null; const q = $('#sq').value.trim();
+    t = setTimeout(async () => { try { res = (await api('/api/imdb?q=' + encodeURIComponent(q))).resultados; if (/tt\d{5,}/.test(q) && res.length) elegido = res[0]; pintar(); } catch (e) { sug.textContent = e.message; } }, 280);
+  });
+  sug.onclick = e => { const b = e.target.closest('button[data-i]'); if (!b) return; elegido = res[+b.dataset.i]; pintar(); };
+  cargarSols();
+};
+async function cargarSols() {
+  const el = $('#sols'); if (!el) return;
+  try {
+    const { solicitudes } = await api('/api/solicitudes');
+    el.innerHTML = solicitudes.length ? solicitudes.map(s => `<div class="sol">${s.poster ? `<img src="${esc(s.poster)}" alt="" loading="lazy">` : '<span class="np"></span>'}<div class="tx"><a href="https://www.imdb.com/title/${esc(s.id)}/" target="_blank" rel="noopener">${esc(s.titulo)}${s.año ? ' (' + s.año + ')' : ''}</a>${esAdmin() ? `<small>Pedida por ${esc(s.por.join(', '))}</small>` : ''}</div><span class="est ${s.estado === 'agregada' ? 'ok' : ''}">${s.estado === 'agregada' ? 'Agregada' : 'Pendiente'}</span>${esAdmin() ? `<button type="button" class="sec" data-e="${esc(s.id)}" data-v="${s.estado === 'agregada' ? 'pendiente' : 'agregada'}">${s.estado === 'agregada' ? 'Reabrir' : 'Lista'}</button>` : ''}<button type="button" class="sec" data-q="${esc(s.id)}">Quitar</button></div>`).join('') : '<p>Ninguna todavía.</p>';
+    el.onclick = async e => {
+      const b = e.target.closest('button[data-e],button[data-q]'); if (!b) return;
+      try { const r = b.dataset.e ? await api('/api/solicitudes', { op: 'estado', id: b.dataset.e, estado: b.dataset.v }) : await api('/api/solicitudes', { op: 'quitar', id: b.dataset.q }); msg(r.mensaje); cargarSols(); contarSols(); } catch (x) { msg(x.message, true); }
+    };
+  } catch (x) { el.textContent = x.message; }
+}
+async function contarSols() {
+  if (!esAdmin()) return;
+  try { const { pendientes } = await api('/api/solicitudes'); $('#nPedir').textContent = pendientes; $('#nPedir').classList.toggle('hidden', !pendientes); } catch {}
+}
+
 // Menú de la cuenta
 $('#bYo').onclick = e => {
   e.stopPropagation();
@@ -346,7 +381,7 @@ function start() {
   $('#adminBtns').classList.toggle('hidden', !esAdmin());
   const h = location.hash;
   if (/^#drive-(ok|error)=/.test(h)) { const ok = h.startsWith('#drive-ok='); msg(decodeURIComponent(h.split('=').slice(1).join('=')), !ok); history.replaceState(null, '', location.pathname + '#/'); }
-  if (esAdmin()) espacioPill();
+  if (esAdmin()) { espacioPill(); contarSols(); }
   render();
 }
 api('/api/yo').then(d => { yo = d.usuario; yo ? start() : show('login'); }).catch(() => { show('login'); $('#eLogin').textContent = 'No se pudo contactar al servidor.'; });

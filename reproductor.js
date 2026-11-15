@@ -50,7 +50,7 @@ const css = `
 #rp .rp-vol:hover input,#rp .rp-vol input:focus{width:84px;opacity:1;margin:0 8px 0 2px}
 #rp .rp-time{font-variant-numeric:tabular-nums;font-size:.86rem;color:#cdd6e6;margin-left:8px;white-space:nowrap}
 #rp .rp-sp{flex:1}
-#rp .rp-q{font-size:.72rem;font-weight:700;padding:2px 5px;border:1.5px solid currentColor;border-radius:4px;margin-right:4px;opacity:.85}
+#rp .rp-set{position:relative}#rp .rp-q{position:absolute;top:3px;right:0;padding:0 3px;border-radius:3px;background:#e5484d;color:#fff;font-size:.56rem;font-weight:700;line-height:1.35;pointer-events:none}
 #rp .rp-cc.on{color:#4b93ff}
 #rp .rp-menu{position:absolute;right:18px;bottom:76px;min-width:240px;max-height:calc(100% - 100px);overflow:auto;padding:6px;border-radius:10px;background:rgba(14,20,34,.96);border:1px solid rgba(255,255,255,.1);box-shadow:0 12px 40px rgba(0,0,0,.6);display:none}
 #rp .rp-menu.on{display:block}
@@ -313,7 +313,6 @@ function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, inse
   $('.rp-q').style.display = 'none'; $('.rp-cc').style.display = kind === 'video' ? '' : 'none';
   $('.rp-pipb').style.display = kind === 'video' && document.pictureInPictureEnabled ? '' : 'none';
   $('.rp-cast').style.display = v.remote ? '' : 'none';
-  if (v.remote && v.remote.watchAvailability) v.remote.watchAvailability(a => { if (v === mio0) $('.rp-cast').style.display = a ? '' : 'none'; }).catch(() => {});
   const mio = v;
   const on = (n, f) => { v.addEventListener(n, f); };
   on('play', () => { $('.rp-pp').innerHTML = IC.pause; el.classList.add('rp-play'); despertar(); });
