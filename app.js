@@ -63,10 +63,13 @@ const enlace = r => '#/' + r.split('/').map(encodeURIComponent).join('/');
 let datos = null, ruta = '', items = [];
 
 function durTxt(seg) { if (!seg) return ''; const m = Math.round(seg / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m} min`; }
-const calTxt = c => c ? (c >= 2160 ? '4K' : c + 'p') : '';
+// Bandera de un idioma (por su nombre o código): «Español latino» -> México, «Inglés» -> Estados Unidos...
+const bandera = l => Reproductor.bandera(l);
+const listaIdiomas = ls => ls.map(l => (bandera(l) ? bandera(l) + ' ' : '') + l).join(', ');
 function metaTxt(f) {
   const p = f.peli || {}, dur = p.duracion ? p.duracion * 60 : f.video && f.video.duracion;
-  return [p.año, durTxt(dur), calTxt(f.video && f.video.clase)].filter(Boolean).join(' · ');
+  const ban = p.idiomas ? [...new Set(p.idiomas.audio.map(bandera).filter(Boolean))].join('') : '';
+  return [p.año, durTxt(dur), ban].filter(Boolean).join(' · ');
 }
 const tituloDe = f => (f.peli && f.peli.titulo) || f.nombre.replace(/\.[^.]+$/, '');
 
@@ -95,14 +98,14 @@ async function render(sinCargando) {
     return `<div class="card${f.oculto ? ' oc' : ''}" tabindex="0" data-i="${i}" data-n="${esc((t + ' ' + f.nombre).toLowerCase())}">
       <div class="poster">${p.caratula ? `<img loading="lazy" alt="" src="${esc(p.caratula)}">` : `<div class="ph">${esc(t)}</div>`}
         ${f.oculto ? '<span class="tag">Oculto</span>' : ''}
-        <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
-        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}?dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Acciones">${ICON.more}</button>` : ''}</div>
+        <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas([...new Set(p.idiomas.subs)]))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
+        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Acciones">${ICON.more}</button>` : ''}</div>
         ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}
       </div><div class="nom" title="${esc(f.nombre)}">${esc(t)}</div></div>`;
   }).join('');
   // Otros archivos
   const otros = items.map((f, i) => ({ f, i })).filter(x => kindOf(x.f) !== 'video');
-  $('#filas').innerHTML = otros.map(({ f, i }) => `<div class="fila${f.oculto ? ' oc' : ''}" data-i="${i}" data-n="${esc(f.nombre.toLowerCase())}"><span class="ic">${ICON[kindOf(f)]}</span><span class="n">${esc(f.nombre)}${f.oculto ? ' <small>(oculto)</small>' : ''}</span><span class="s">${f.size ? tam(f.size) : ''}</span><a class="btn sec" href="${srcDe(f)}?dl=1" data-stop="1" title="Descargar">${ICON.dl}</a>${esAdmin() ? `<button class="ico" type="button" data-more="${i}">${ICON.more}</button>` : ''}</div>`).join('');
+  $('#filas').innerHTML = otros.map(({ f, i }) => `<div class="fila${f.oculto ? ' oc' : ''}" data-i="${i}" data-n="${esc(f.nombre.toLowerCase())}"><span class="ic">${ICON[kindOf(f)]}</span><span class="n">${esc(f.nombre)}${f.oculto ? ' <small>(oculto)</small>' : ''}</span><span class="s">${f.size ? tam(f.size) : ''}</span><a class="btn sec" href="${srcDe(f)}&dl=1" data-stop="1" title="Descargar">${ICON.dl}</a>${esAdmin() ? `<button class="ico" type="button" data-more="${i}">${ICON.more}</button>` : ''}</div>`).join('');
   $('#otros').classList.toggle('hidden', !otros.length);
   const vacio = !vids.length && !otros.length && !datos.carpetas.length;
   $('#vacio').textContent = vacio ? 'Esta carpeta está vacía.' : ''; $('#vacio').classList.toggle('hidden', !vacio);
@@ -114,7 +117,7 @@ function aviso(t, conectar) {
   $('#aviso').classList.remove('hidden');
   if (conectar) $('#conectar').onclick = () => { location.href = API + '/api/drive/conectar'; };
 }
-const srcDe = f => API + '/api/stream/' + f.id + '/' + encodeURIComponent(f.nombre);
+const srcDe = f => API + '/api/stream/' + f.id + '/' + encodeURIComponent(f.nombre) + '?f=' + encodeURIComponent(f.f);
 // Carátulas que faltan: el Worker las busca de a poco en TMDB
 let completando = false;
 async function completarCatalogo() {
@@ -132,9 +135,10 @@ $('#q').oninput = filtrar;
 // ---------- Abrir ----------
 function abrir(f) {
   const k = kindOf(f), src = srcDe(f);
-  if (k === 'file') { location.href = src + '?dl=1'; return; }
+  if (k === 'file') { location.href = src + '&dl=1'; return; }
   const p = f.peli || {};
-  Reproductor.abrir({ titulo: tituloDe(f), sub: metaTxt(f), sinopsis: p.sinopsis, fondo: p.fondo, kind: k, src, dl: src + '?dl=1', cred: true,
+  Reproductor.abrir({ titulo: tituloDe(f), sub: metaTxt(f), sinopsis: p.sinopsis, fondo: p.fondo, kind: k, src, dl: src + '&dl=1', cred: false,
+    insertar: k === 'video' ? location.origin + '/ver.html#v=' + encodeURIComponent(f.id) + '&f=' + encodeURIComponent(f.f) + '&t=' + encodeURIComponent(tituloDe(f)) : null,
     pistas: k === 'video' ? () => api('/api/pistas?id=' + encodeURIComponent(f.id)) : null });
 }
 $('#grid').addEventListener('click', e => {

@@ -8,7 +8,10 @@ const I = p => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
 const IC = {
   x: I('<path d="M6 6l12 12M18 6 6 18"/>'),
   play: I('<path class="f" d="M7 4.8v14.4L19 12z"/>'), pause: I('<path class="f" d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/>'),
-  back: I('<path d="M11 6 5 12l6 6"/><path d="M5 12h9a5 5 0 0 1 5 5v1"/>'), fwd: I('<path d="m13 6 6 6-6 6"/><path d="M19 12h-9a5 5 0 0 0-5 5v1"/>'),
+  back: I('<path d="M12.5 4.2A8 8 0 1 1 4.6 9.5"/><path d="M4.2 4.5v5h5"/><text x="12" y="15.4" text-anchor="middle" font-size="6.8" font-weight="700" font-family="Inter,Arial,sans-serif" fill="currentColor" stroke="none">10</text>'), fwd: I('<path d="M11.5 4.2a8 8 0 1 0 7.9 5.3"/><path d="M19.8 4.5v5h-5"/><text x="12" y="15.4" text-anchor="middle" font-size="6.8" font-weight="700" font-family="Inter,Arial,sans-serif" fill="currentColor" stroke="none">10</text>'),
+  cast: I('<path d="M3 7V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/><path d="M3 18.5a2.5 2.5 0 0 1 2.5 2.5M3 14.5A6.5 6.5 0 0 1 9.5 21M3 10.5A10.5 10.5 0 0 1 13.5 21"/>'),
+  pip: I('<rect x="3" y="5" width="18" height="14" rx="2"/><rect class="f" x="12" y="11.5" width="7" height="5.5" rx="1"/>'),
+  code: I('<path d="m8 8-4 4 4 4M16 8l4 4-4 4"/>'),
   vol: I('<path class="f" d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
   mute: I('<path class="f" d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>'),
   cc: I('<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M10.5 10.3a2.3 2.3 0 1 0 0 3.4M17 10.3a2.3 2.3 0 1 0 0 3.4"/>'),
@@ -17,7 +20,7 @@ const IC = {
   dl: I('<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/>'), chev: I('<path d="m9 6 6 6-6 6"/>'), left: I('<path d="m15 6-6 6 6 6"/>'), check: I('<path d="m5 12.5 4.5 4.5L19 7.5"/>')
 };
 const css = `
-#rp{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#03070f;color:#eef3fb;font:14px/1.4 Inter,system-ui,"Segoe UI",sans-serif;user-select:none}
+#rp{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:#03070f;color:#eef3fb;font:14px/1.4 Inter,"Noto Color Emoji",system-ui,"Segoe UI",sans-serif;user-select:none}
 #rp.on{display:flex}
 #rp svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}#rp svg .f{fill:currentColor;stroke:none}
 #rp button{all:unset;cursor:pointer;display:grid;place-items:center;border-radius:8px;color:#eef3fb}
@@ -62,6 +65,20 @@ const css = `
 #rp.cargando .rp-spin{display:block}@keyframes rpgira{to{transform:rotate(360deg)}}
 #rp .rp-err{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:min(440px,90%);padding:16px 18px;border-radius:10px;background:rgba(14,20,34,.95);text-align:center;display:none}#rp .rp-err a{color:#8cbcff}
 #rp .rp-aviso{position:absolute;left:50%;top:18px;transform:translateX(-50%);padding:7px 14px;border-radius:8px;background:rgba(14,20,34,.92);font-size:.86rem;opacity:0;transition:opacity .3s;pointer-events:none}#rp .rp-aviso.on{opacity:1}
+#rp .rp-ctx{position:absolute;z-index:5;min-width:250px;padding:6px;border-radius:10px;background:rgba(14,20,34,.97);border:1px solid rgba(255,255,255,.1);box-shadow:0 12px 40px rgba(0,0,0,.6);display:none}
+#rp .rp-ctx.on{display:block}
+#rp .rp-ctx button{display:flex;width:100%;box-sizing:border-box;align-items:center;gap:11px;padding:9px 10px;border-radius:7px;font-size:.88rem}
+#rp .rp-ctx button:hover{background:rgba(255,255,255,.08)}#rp .rp-ctx svg{width:18px;height:18px}
+#rp .rp-ctx hr{border:0;border-top:1px solid rgba(255,255,255,.08);margin:5px 4px}
+#rp .rp-ctx .t{padding:6px 10px 2px;font-size:.74rem;font-weight:600;color:#93a4c2;text-transform:uppercase;letter-spacing:.05em}
+#rp .rp-ctx button.on{color:#8cbcff}#rp .rp-ctx .fl{width:18px;text-align:center;font-size:1.05rem}
+#rp .rp-emb{position:absolute;inset:0;z-index:6;display:none;place-items:center;background:rgba(0,0,0,.6)}
+#rp .rp-emb.on{display:grid}
+#rp .rp-emb>div{width:min(560px,92%);padding:20px;border-radius:12px;background:#0e1628;border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:12px}
+#rp .rp-emb h3{margin:0;font-size:1rem}#rp .rp-emb p{margin:0;color:#93a4c2;font-size:.84rem;user-select:text}
+#rp .rp-emb textarea{width:100%;box-sizing:border-box;height:96px;resize:none;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:#060b16;color:#dfe7f5;font:12px/1.5 ui-monospace,Consolas,monospace;user-select:text}
+#rp .rp-emb .a{display:flex;justify-content:flex-end;gap:8px}#rp .rp-emb .a button{padding:8px 16px;border-radius:8px;font-weight:600;font-size:.88rem;background:#3d8bfd}#rp .rp-emb .a button.s{background:transparent;border:1px solid rgba(255,255,255,.2)}
+#rp.emb .rp-x{display:none}
 #rp:fullscreen .rp-top{position:absolute;left:0;right:0;top:0;z-index:2;background:linear-gradient(rgba(0,0,0,.8),transparent);border:0;transition:opacity .25s}
 #rp:fullscreen:not(.ui) .rp-top{opacity:0;pointer-events:none}
 @media(max-width:600px){#rp .rp-top{padding:10px 12px 10px 16px}#rp .rp-ui{padding:30px 8px 6px}#rp .rp-row button{width:36px;height:36px}#rp .rp-hide-m{display:none!important}#rp .rp-menu{right:8px;left:8px;min-width:0}}`;
@@ -74,15 +91,27 @@ el.innerHTML = `<div class="rp-top"><div class="rp-tt"><h2></h2><small></small><
 <div class="rp-row"><button class="rp-pp" type="button" title="Reproducir (espacio)">${IC.play}</button><button class="rp-b10 rp-hide-m" type="button" title="Atrás 10 s (←)">${IC.back}</button><button class="rp-f10 rp-hide-m" type="button" title="Adelante 10 s (→)">${IC.fwd}</button>
 <span class="rp-vol"><button class="rp-mute" type="button" title="Silenciar (M)">${IC.vol}</button><input type="range" min="0" max="1" step="0.02" aria-label="Volumen"></span>
 <span class="rp-time">0:00 / 0:00</span><span class="rp-sp"></span>
-<button class="rp-cc" type="button" title="Subtítulos (C)">${IC.cc}</button><button class="rp-set" type="button" title="Calidad, audio y más"><span class="rp-q"></span>${IC.gear}</button>
-<a class="rp-dl rp-hide-m" title="Descargar" style="display:grid;place-items:center;width:40px;height:40px;color:inherit;border-radius:8px">${IC.dl}</a><button class="rp-fs" type="button" title="Pantalla completa (F)">${IC.full}</button></div></div>
-<div class="rp-menu"></div></div>`;
+<button class="rp-cc" type="button" title="Subtítulos (C)">${IC.cc}</button><button class="rp-cast" type="button" title="Transmitir a un dispositivo">${IC.cast}</button><button class="rp-set" type="button" title="Ajustes: calidad, audio, subtítulos y velocidad"><span class="rp-q"></span>${IC.gear}</button>
+<button class="rp-pipb rp-hide-m" type="button" title="Pantalla en pantalla (P)">${IC.pip}</button><button class="rp-fs" type="button" title="Pantalla completa (F)">${IC.full}</button></div></div>
+<div class="rp-menu"></div><div class="rp-ctx"></div><div class="rp-emb"></div></div>`;
 document.body.appendChild(el);
 const $ = s => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const mmss = t => { if (!isFinite(t)) t = 0; t = Math.floor(t); const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = t % 60; return (h ? h + ':' : '') + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'); };
 const hms = t => { if (!isFinite(t)) t = 0; t = Math.floor(t); const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
 const pref = { get(k, d) { try { const v = localStorage.getItem('rp-' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('rp-' + k, JSON.stringify(v)); } catch {} } };
 
+// Bandera de un idioma, por su nombre («Español latino») o código («spa»)
+const FLAGS = [[/latin|lat\b|mex|es-?419|es-?mx/i, 'MX'], [/castellano|españa|es-?es/i, 'ES'], [/^(es|spa)$|espa[ñn]ol|spanish/i, 'ES'], [/brasil|pt-?br/i, 'BR'], [/^(pt|por)$|portugu/i, 'PT'],
+  [/brit|uk\b|en-?gb/i, 'GB'], [/^(en|eng)$|ingl[eé]s|english/i, 'US'], [/^(fr|fra|fre)$|franc[eé]s|french/i, 'FR'], [/^(it|ita)$|italian/i, 'IT'], [/^(de|deu|ger)$|alem[aá]n|german/i, 'DE'],
+  [/^(ja|jpn)$|japon[eé]s|japanese/i, 'JP'], [/^(ko|kor)$|coreano|korean/i, 'KR'], [/^(zh|chi|zho)$|chino|chinese|mandar/i, 'CN'], [/^(ru|rus)$|ruso|russian/i, 'RU'], [/^(hi|hin)$|hindi/i, 'IN'],
+  [/^(ca|cat)$|catal/i, 'ES'], [/^(nl|dut|nld)$|holand|dutch/i, 'NL'], [/^(sv|swe)$|sueco|swedish/i, 'SE'], [/^(pl|pol)$|polaco|polish/i, 'PL'], [/^(tr|tur)$|turco|turkish/i, 'TR'], [/^(ar|ara)$|[aá]rabe|arabic/i, 'SA']];
+function bandera(l) {
+  const x = String(l || '').trim(); if (!x) return '';
+  const hit = FLAGS.find(([re]) => re.test(x)); if (!hit) return '';
+  return [...hit[1]].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
+}
+const conBandera = l => (bandera(l) ? bandera(l) + '  ' : '') + l;
 let v = null, st0 = null, cleanup = [];
 function cerrar() {
   cleanup.forEach(f => { try { f(); } catch {} }); cleanup = [];
@@ -130,7 +159,7 @@ function pintar(p) { $('.rp-pos').style.width = (p * 100) + '%'; $('.rp-knob').s
 function tick() {
   if (!v) return;
   if (!arrastre && v.duration) pintar(v.currentTime / v.duration);
-  $('.rp-time').textContent = hms(v.currentTime) + ' / ' + hms(v.duration);
+  $('.rp-time').textContent = mmss(v.currentTime) + ' / ' + hms(v.duration);
   let b = 0; for (let i = 0; i < v.buffered.length; i++) if (v.buffered.start(i) <= v.currentTime + 1) b = v.buffered.end(i);
   $('.rp-buf').style.width = (v.duration ? b / v.duration * 100 : 0) + '%';
 }
@@ -138,18 +167,62 @@ function tick() {
 addEventListener('keydown', e => {
   if (!el.classList.contains('on') || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target !== volIn) return;
   const k = e.key.toLowerCase(); let hecho = true;
-  if (k === 'escape') { if ($('.rp-menu').classList.contains('on')) $('.rp-menu').classList.remove('on'); else if (!document.fullscreenElement) cerrar(); else hecho = false; }
+  if (k === 'escape') { if (emb.classList.contains('on')) emb.classList.remove('on'); else if (ctx.classList.contains('on')) cerrarCtx(); else if ($('.rp-menu').classList.contains('on')) $('.rp-menu').classList.remove('on'); else if (!document.fullscreenElement) cerrar(); else hecho = false; }
   else if (!v) hecho = false;
   else if (k === ' ' || k === 'k') { toggle(); big(v.paused ? IC.pause : IC.play); }
   else if (k === 'arrowleft' || k === 'j') salto(k === 'j' ? -10 : -5);
   else if (k === 'arrowright' || k === 'l') salto(k === 'l' ? 10 : 5);
   else if (k === 'arrowup' || k === 'arrowdown') { v.muted = false; v.volume = Math.max(0, Math.min(1, v.volume + (k === 'arrowup' ? .05 : -.05))); aviso('Volumen ' + Math.round(v.volume * 100) + ' %'); }
-  else if (k === 'f') fs(); else if (k === 'm') v.muted = !v.muted;
+  else if (k === 'f') fs(); else if (k === 'm') v.muted = !v.muted; else if (k === 'p') pip();
   else if (k === 'c') $('.rp-cc').click();
   else if (/^[0-9]$/.test(k) && v.duration) v.currentTime = v.duration * (+k / 10);
   else hecho = false;
   if (hecho) { e.preventDefault(); despertar(); }
 });
+
+// --- Pantalla en pantalla y transmitir ---
+async function pip() {
+  if (!v) return;
+  try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await v.requestPictureInPicture(); }
+  catch { aviso('Este navegador no permite pantalla en pantalla'); }
+}
+$('.rp-pipb').onclick = pip;
+$('.rp-cast').onclick = () => { if (!v || !v.remote) return aviso('Este navegador no puede transmitir'); v.remote.prompt().catch(e => aviso(e.name === 'NotFoundError' ? 'No encontré dispositivos para transmitir en tu red' : 'No se pudo transmitir')); };
+// --- Clic derecho: menú propio ---
+const ctx = $('.rp-ctx'), emb = $('.rp-emb');
+const cerrarCtx = () => ctx.classList.remove('on');
+el.addEventListener('click', e => { if (!e.target.closest('.rp-ctx')) cerrarCtx(); }, true);
+$('.rp-stage').addEventListener('contextmenu', e => {
+  if (!v || e.target.closest('.rp-menu,.rp-emb')) return;
+  e.preventDefault(); menu.classList.remove('on');
+  const btn = (ico, txt, fn, cls = '') => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.innerHTML = ico + '<span>' + esc(txt) + '</span>'; b.onclick = ev => { ev.stopPropagation(); cerrarCtx(); fn(); }; return b; };
+  const fl = l => `<span class="fl">${bandera(l) || '·'}</span>`;
+  ctx.innerHTML = '';
+  if (document.pictureInPictureEnabled) ctx.append(btn(IC.pip, document.pictureInPictureElement ? 'Salir de pantalla en pantalla' : 'Pantalla en pantalla', pip));
+  if (st0.insertar) ctx.append(btn(IC.code, 'Insertar (código HTML)', insertar));
+  if (st0.audios.length) {
+    ctx.append(Object.assign(document.createElement('hr')), Object.assign(document.createElement('div'), { className: 't', textContent: 'Idiomas de audio' }));
+    st0.audios.forEach((a, i) => ctx.append(btn(fl(a.label), a.label, () => setAudio(i), i === st0.a ? 'on' : '')));
+  }
+  if (st0.subs.length) {
+    ctx.append(Object.assign(document.createElement('div'), { className: 't', textContent: 'Subtítulos' }));
+    st0.subs.forEach((s2, i) => ctx.append(btn(fl(s2.label), s2.label, () => setSub(i), i === st0.s ? 'on' : '')));
+  }
+  if (st0.dl) { ctx.append(document.createElement('hr')); ctx.append(btn(IC.dl, 'Descargar', () => { const a = document.createElement('a'); a.href = st0.dl; a.download = ''; a.click(); })); }
+  ctx.classList.add('on');
+  const r = el.getBoundingClientRect(), w = ctx.offsetWidth, h = ctx.offsetHeight;
+  ctx.style.left = Math.min(e.clientX - r.left, r.width - w - 8) + 'px';
+  ctx.style.top = Math.max(8, Math.min(e.clientY - r.top, r.height - h - 8)) + 'px';
+});
+function insertar() {
+  const code = `<iframe src="${st0.insertar}" width="960" height="540" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+  emb.innerHTML = '<div><h3>Insertar</h3><p>Pega este código en cualquier página para mostrar el video. Ojo: quien tenga el código puede verlo sin iniciar sesión.</p><textarea readonly></textarea><div class="a"><button type="button" class="s">Cerrar</button><button type="button" class="c">Copiar</button></div></div>';
+  const ta = emb.querySelector('textarea'); ta.value = code;
+  emb.classList.add('on'); ta.focus(); ta.select();
+  emb.querySelector('.s').onclick = () => emb.classList.remove('on');
+  emb.querySelector('.c').onclick = async () => { try { await navigator.clipboard.writeText(code); } catch { ta.select(); document.execCommand('copy'); } aviso('Código copiado'); emb.classList.remove('on'); };
+  emb.onclick = e => { if (e.target === emb) emb.classList.remove('on'); };
+}
 
 // --- Menú de ajustes ---
 const menu = $('.rp-menu');
@@ -157,23 +230,24 @@ $('.rp-set').onclick = e => { e.stopPropagation(); if (menu.classList.toggle('on
 function opcion(label, val, fn) { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = label + (val != null ? `<span class="v">${esc(val)}</span>${IC.chev}` : ''); b.onclick = e => { e.stopPropagation(); fn(); }; return b; }
 function menuPrincipal() {
   menu.innerHTML = '';
-  if (st0.calidades.length > 1) menu.append(opcion('Calidad', st0.calidades[st0.q].label, () => lista('Calidad', st0.calidades.map(c => c.label), st0.q, setCalidad)));
-  if (st0.audios.length > 1) menu.append(opcion('Audio', st0.audios[st0.a].label, () => lista('Audio', st0.audios.map(a => a.label), st0.a, setAudio)));
-  menu.append(opcion('Subtítulos', st0.s < 0 ? 'No' : st0.subs[st0.s].label, () => lista('Subtítulos', ['No'].concat(st0.subs.map(s => s.label)), st0.s + 1, i => setSub(i - 1))));
+  if (st0.kind === 'video') menu.append(opcion('Calidad', st0.calidades[st0.q].label, () => lista('Calidad', st0.calidades.map(c => c.label), st0.q, setCalidad, st0.calidades.length < 2 ? 'Las otras calidades (720p, 480p…) se están preparando.' : '')));
+  if (st0.audios.length > 1) menu.append(opcion('Audio', conBandera(st0.audios[st0.a].label), () => lista('Audio', st0.audios.map(a => conBandera(a.label)), st0.a, setAudio)));
+  menu.append(opcion('Subtítulos', st0.s < 0 ? 'No' : conBandera(st0.subs[st0.s].label), () => lista('Subtítulos', ['No'].concat(st0.subs.map(s => conBandera(s.label))), st0.s + 1, i => setSub(i - 1))));
   const vel = [0.5, 0.75, 1, 1.25, 1.5, 2];
   menu.append(opcion('Velocidad', v.playbackRate === 1 ? 'Normal' : v.playbackRate + '×', () => lista('Velocidad', vel.map(x => x === 1 ? 'Normal' : x + '×'), vel.indexOf(v.playbackRate), i => { v.playbackRate = vel[i]; })));
 }
-function lista(titulo, ops, sel, fn) {
+function lista(titulo, ops, sel, fn, nota) {
   menu.innerHTML = '';
   const h = document.createElement('button'); h.type = 'button'; h.className = 'h'; h.innerHTML = IC.left + esc(titulo); h.onclick = e => { e.stopPropagation(); menuPrincipal(); }; menu.append(h);
   ops.forEach((o, i) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="ck">${i === sel ? IC.check : ''}</span>${esc(o)}`; b.onclick = e => { e.stopPropagation(); fn(i); menuPrincipal(); }; menu.append(b); });
+  if (nota) { const n = document.createElement('div'); n.style.cssText = 'padding:8px 10px 4px;font-size:.78rem;color:#93a4c2;max-width:230px'; n.textContent = nota; menu.append(n); }
 }
 
 // --- Calidad ---
 function setCalidad(i, auto) {
   const c = st0.calidades[i]; if (!c) return;
   const t = v.currentTime, playing = !v.paused || auto === 'inicio';
-  st0.q = i; $('.rp-q').textContent = c.label; $('.rp-q').style.display = st0.calidades.length > 1 ? '' : 'none';
+  st0.q = i; $('.rp-q').textContent = c.label; $('.rp-q').style.display = '';
   if (!auto) pref.set('calidad', c.alto);
   el.classList.add('cargando');
   v.src = c.src;
@@ -221,20 +295,23 @@ function pintarSubs() {
   [...tt.activeCues].forEach(c => { const sp = document.createElement('span'); try { sp.append(c.getCueAsHTML()); } catch { sp.textContent = c.text; } box.append(sp, document.createElement('br')); });
 }
 
-function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred }) {
+function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, insertar: ins, embed }) {
   cerrar();
   const co = cred ? 'use-credentials' : 'anonymous';
   $('.rp-tt h2').textContent = titulo; $('.rp-tt small').textContent = sub || '';
   $('.rp-stage').style.backgroundImage = fondo ? `url("${String(fondo).replace(/"/g, '')}")` : '';
-  $('.rp-dl').href = dl || src; $('.rp-dl').setAttribute('download', '');
+  el.classList.toggle('emb', !!embed); cerrarCtx(); emb.classList.remove('on');
   el.classList.add('on', 'ui'); document.body.style.overflow = 'hidden'; el.focus();
   if (kind === 'image') { $('.rp-ui').style.display = 'none'; const im = document.createElement('img'); im.className = 'rp-img'; im.alt = ''; im.src = src; $('.rp-media').appendChild(im); return; }
   $('.rp-ui').style.display = '';
-  v = document.createElement('video'); v.playsInline = true; v.crossOrigin = co; v.preload = 'auto';
+  v = document.createElement('video'); const mio0 = v; v.playsInline = true; v.crossOrigin = co; v.preload = 'auto';
   v.volume = pref.get('vol', 1);
   $('.rp-media').appendChild(v);
-  st0 = { co, calidades: [{ alto: 0, label: 'Original', src }], q: 0, audios: [{ label: 'Original', src: null }], a: 0, subs: [], s: -1 };
+  st0 = { co, kind, dl: dl || src, insertar: ins || null, calidades: [{ alto: 0, label: 'Original', src }], q: 0, audios: [{ label: 'Original', src: null }], a: 0, subs: [], s: -1 };
   $('.rp-q').style.display = 'none'; $('.rp-cc').style.display = kind === 'video' ? '' : 'none';
+  $('.rp-pipb').style.display = kind === 'video' && document.pictureInPictureEnabled ? '' : 'none';
+  $('.rp-cast').style.display = v.remote ? '' : 'none';
+  if (v.remote && v.remote.watchAvailability) v.remote.watchAvailability(a => { if (v === mio0) $('.rp-cast').style.display = a ? '' : 'none'; }).catch(() => {});
   const mio = v;
   const on = (n, f) => { v.addEventListener(n, f); };
   on('play', () => { $('.rp-pp').innerHTML = IC.pause; el.classList.add('rp-play'); despertar(); });
@@ -265,7 +342,7 @@ function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred }) {
     const quiero = pref.get('calidad', null), pant = Math.max(screen.width, screen.height) * (devicePixelRatio || 1);
     let qi = quiero ? st0.calidades.findIndex(c => c.alto <= quiero) : st0.calidades.findIndex(c => c.alto * 16 / 9 <= pant * 1.1);
     if (qi < 0) qi = st0.calidades.length - 1;
-    $('.rp-q').style.display = st0.calidades.length > 1 ? '' : 'none';
+    $('.rp-q').style.display = '';
     if (!empezado) { clearTimeout(plan); st0.q = qi; $('.rp-q').textContent = st0.calidades[qi].label; arrancar(); }
     else if (v.src !== st0.calidades[qi].src) setCalidad(qi, true);
     else { st0.q = qi; $('.rp-q').textContent = st0.calidades[qi].label; }
@@ -278,5 +355,5 @@ function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred }) {
     if (ai > 0) v.addEventListener('loadedmetadata', () => setAudio(ai), { once: true });
   }).catch(() => { if (!empezado) { clearTimeout(plan); arrancar(); } });
 }
-window.Reproductor = { abrir, cerrar };
+window.Reproductor = { abrir, cerrar, bandera };
 })();
