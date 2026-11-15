@@ -26,7 +26,7 @@ jobs:
       - name: Procesar videos
         env:
           ROBOT_KEY: ${{ secrets.ROBOT_KEY }}
-          API: ${{ vars.API || 'https://movies-api.emailrouting.xyz' }}
+          API: ${{ secrets.ROBOT_API }}
           TRABAJO: /mnt/mm
           MINUTOS: '330'
         run: node scripts/robot.mjs calidades

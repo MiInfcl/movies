@@ -26,7 +26,7 @@ jobs:
       - name: Procesar pedidos
         env:
           ROBOT_KEY: ${{ secrets.ROBOT_KEY }}
-          API: ${{ vars.API || 'https://movies-api.emailrouting.xyz' }}
+          API: ${{ secrets.ROBOT_API }}
           TRABAJO: /mnt/mm
           MINUTOS: '320'
         run: node scripts/robot.mjs pedidos
