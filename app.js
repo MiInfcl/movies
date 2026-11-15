@@ -62,7 +62,7 @@ const rutaActual = () => { const h = location.hash; if (!h.startsWith('#/')) ret
 const enlace = r => '#/' + r.split('/').map(encodeURIComponent).join('/');
 let datos = null, ruta = '', items = [];
 
-function durTxt(seg) { if (!seg) return ''; const m = Math.round(seg / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; }
+function durTxt(seg) { if (!seg) return ''; const m = Math.round(seg / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m} min`; }
 const calTxt = c => c ? (c >= 2160 ? '4K' : c + 'p') : '';
 function metaTxt(f) {
   const p = f.peli || {}, dur = p.duracion ? p.duracion * 60 : f.video && f.video.duracion;
