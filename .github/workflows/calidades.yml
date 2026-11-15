@@ -3,7 +3,7 @@
 name: Calidades y pistas
 on:
   schedule:
-    - cron: '17 * * * *'      # una vez por hora (si ya está todo hecho, termina en un minuto)
+    - cron: '*/15 * * * *'    # cada 15 minutos (si no hay nada nuevo, termina en un minuto)
   workflow_dispatch:
 concurrency:
   group: calidades

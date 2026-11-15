@@ -154,6 +154,19 @@ async function calidades(cfg) {
     const auxSet = new Set(cand.map(auxDe));
     const videos = cand.filter(f => ![...auxSet].some(a => f.Path.startsWith(a + '/')));
     log(`Drive ${d.k} (${d.admin}): ${videos.length} videos`);
+    // Primero los videos nuevos (sin pistas): se les sacan audio y subtítulos, que es rápido; las calidades van después
+    const nuevos = videos.filter(v => !byPath.has(auxDe(v) + '/pistas.json'));
+    for (const v of nuevos) {
+      if (quedan() < 30 * 60e3) return;
+      log('== nuevo:', v.Path);
+      const w = fs.mkdtempSync(path.join(TRABAJO, 'n-'));
+      try {
+        const local = path.join(w, v.Name); rcv('copyto', R + v.Path, local);
+        const out = path.join(w, '_aux'); procesarVideo(local, out, { calidades: false });
+        rcv('copy', out, R + auxDe(v)); byPath.set(auxDe(v) + '/pistas.json', {});
+      } catch (e) { log('  ERROR:', e.message); }
+      finally { fs.rmSync(w, { recursive: true, force: true }); }
+    }
     for (const v of videos) {
       const aux = auxDe(v);
       // ¿Le falta algo? (pistas.json v2, o audios subidos que el navegador no puede reproducir)
