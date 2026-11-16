@@ -348,6 +348,23 @@ function ventana(html, onOk, okText = 'Aceptar', danger = false, cancel = 'Cance
   box.querySelectorAll('input.t').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
   const first = box.querySelector('input.t'); if (first) { first.focus(); first.select(); }
 }
+// Addon de Stremio: cada persona tiene su enlace propio (si se filtra, saca uno nuevo y el viejo deja de servir)
+async function ventanaStremio(nuevo = false) {
+  let url; try { url = (await api('/api/stremio', { nuevo })).url; } catch (e) { return msg(e.message, true); }
+  const app = 'stremio://' + url.replace(/^https?:\/\//, ''), web = 'https://web.stremio.com/#/addons?addon=' + encodeURIComponent(url);
+  ventana(`<h3>Usar Butaca en Stremio</h3>
+    <p>Instala el addon y verás tus películas de Butaca en Stremio (en el PC, el celular o la tele), con sus calidades y subtítulos.</p>
+    <div class="acts" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 12px"><a class="btn" href="${esc(app)}">Instalar en la app Stremio</a><a class="btn sec" href="${esc(web)}" target="_blank" rel="noopener">Instalar en Stremio Web</a></div>
+    <p style="margin-bottom:6px">O pega este enlace en Stremio, en <b>Complementos</b> → buscador:</p>
+    <input class="t" id="stmUrl" value="${esc(url)}" readonly>
+    <p style="font-size:.82rem;color:var(--mut)">Este enlace es solo tuyo: no lo compartas. Si alguien más lo tiene, saca uno nuevo y el anterior deja de funcionar (tendrás que reinstalar el addon).</p>`,
+    async () => { await navigator.clipboard.writeText(url); msg('Enlace copiado.'); }, 'Copiar enlace', false, 'Cerrar');
+  $('#stmUrl').onclick = e => e.target.select();
+  const acts = box.querySelector('.acts:last-child'), b = document.createElement('button');
+  b.type = 'button'; b.className = 'sec'; b.textContent = 'Sacar un enlace nuevo'; b.style.marginRight = 'auto';
+  b.onclick = () => ventana('<h3>¿Sacar un enlace nuevo?</h3><p>El enlace anterior dejará de funcionar y tendrás que volver a instalar el addon en Stremio.</p>', () => ventanaStremio(true), 'Sacar enlace nuevo', true);
+  acts.prepend(b);
+}
 const listo = r => { cerrarDlg(); msg(r.mensaje); render(true); };
 
 function renombrar(sel, nombre, esArchivo) {
@@ -691,8 +708,10 @@ $('#bYo').onclick = e => {
   const ok = '<svg class="i chk" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>';
   abrirMenu($('#bYo'), `<div class="who"><b>${esc(yo.visible || yo.nombre)}</b>${yo.visible ? esc(yo.nombre) + '<br>' : ''}${yo.rol === 'admin' ? 'Administrador' : 'Usuario'}</div><hr>`
     + (yo.correo ? `<button data-a="sem" class="${yo.semanal ? 'on' : ''}" title="Cada sábado, un correo con las películas que llegaron en la semana">Resumen semanal por correo${yo.semanal ? ok : ''}</button><hr>` : '')
+    + '<button data-a="stm" title="Ver la biblioteca en la app Stremio">Usar en Stremio</button><hr>'
     + '<button data-a="out">Cerrar sesión</button>', {
     out: salir,
+    stm: () => ventanaStremio(),
     sem: async () => { try { const r = await api('/api/semanal', { on: !yo.semanal }); yo.semanal = r.semanal; msg(r.mensaje); } catch (x) { msg(x.message, true); } }
   });
 };
