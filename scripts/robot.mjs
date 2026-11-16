@@ -121,6 +121,42 @@ function fusionar(out, viejo) {
 // Cambia el contenido del video por el MP4 y luego le cambia la extensión. Primero el contenido (en el mismo archivo,
 // así conserva su id en Drive y el progreso de cada persona) y después el nombre: si algo se corta a medias, queda un
 // .mkv con MP4 adentro, que la próxima vuelta vuelve a procesar sin daño.
+// Idiomas dentro del video: cada calidad (y el original .mp4) lleva todas las pistas de audio, con su idioma,
+// para que reproductores como Stremio dejen elegir el idioma. El sitio sigue usando sus .m4a aparte.
+const LANG3 = { es: 'spa', spa: 'spa', en: 'eng', eng: 'eng', pt: 'por', por: 'por', fr: 'fre', fra: 'fre', fre: 'fre', it: 'ita', ita: 'ita', de: 'ger', deu: 'ger', ger: 'ger', ja: 'jpn', jpn: 'jpn', ko: 'kor', kor: 'kor' };
+const lang3 = (l, label) => LANG3[String(l || '').toLowerCase()] || (/espa|latin|castell/i.test(label) ? 'spa' : /ingl|english/i.test(label) ? 'eng' : /portu/i.test(label) ? 'por' : /franc/i.test(label) ? 'fre' : 'und');
+function embeberAudios(R, v, aux, w) {
+  let man; try { man = JSON.parse(rc('cat', R + aux + '/pistas.json').stdout); } catch { return; }
+  const ls = JSON.parse(rc('lsjson', R + aux, '--files-only', '--no-modtime', '--no-mimetype').stdout), by = new Set(ls.map(f => f.Name));
+  const m4aDe = f => /\.(m4a|aac)$/i.test(f) ? f : f.replace(/\.[^.]+$/, '.m4a');
+  const extras = [], usados = new Set();
+  (man.audios || []).forEach((a, i) => { if (i && a.file && by.has(m4aDe(a.file))) { extras.push({ file: m4aDe(a.file), label: a.label, lang: lang3(a.lang, a.label) }); usados.add(a.file); usados.add(m4aDe(a.file)); } });
+  for (const f of ls) { const a = /^Audio - (.+)\.m4a$/i.exec(f.Name); if (a && !usados.has(f.Name)) extras.push({ file: f.Name, label: a[1], lang: lang3('', a[1]) }); }
+  const marcar = () => { man.multi = true; run('rclone', ['rcat', R + aux + '/pistas.json'], { input: JSON.stringify(man, null, 1) }); };
+  if (!extras.length) return marcar();
+  const a0 = (man.audios || [])[0] || {};
+  const objetivos = ls.filter(f => /^\d{3,4}p\.mp4$/.test(f.Name)).map(f => aux + '/' + f.Name);
+  const orig = /\.(mp4|m4v)$/i.test(v.Name) ? v.Path : v.Path.replace(/\.[^.]+$/, '.mp4');
+  if (run('rclone', ['lsf', R + orig], { ok: true }).stdout.trim()) objetivos.push(orig);
+  log('  idiomas dentro del video:', [a0.label || 'Original', ...extras.map(e => e.label)].join(', '), '->', objetivos.length, 'archivos');
+  const dir = path.join(w, '_multi'); fs.mkdirSync(dir, { recursive: true });
+  extras.forEach((e, i) => { e.local = path.join(dir, `x${i}.m4a`); rc('copyto', R + aux + '/' + e.file, e.local); });
+  for (const o of objetivos) {
+    if (quedan() < 15 * 60e3) { log('  sin tiempo: sigo en la próxima vuelta'); return; }
+    const local = path.join(dir, 'in.mp4'), out = path.join(dir, 'out.mp4');
+    rc('copyto', R + o, local);
+    const p = probe(local), na = p.streams.filter(s => s.codec_type === 'audio').length;
+    if (!na || na > extras.length) { fs.rmSync(local, { force: true }); continue; }   // sin audio, o ya los tiene
+    const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', local, ...extras.flatMap(e => ['-i', e.local]), '-map', '0:v:0', '-map', '0:a:0', ...extras.flatMap((_, i) => ['-map', `${i + 1}:a:0`]), '-c', 'copy',
+      '-metadata:s:a:0', 'language=' + lang3(a0.lang, a0.label || ''), '-metadata:s:a:0', 'title=' + (a0.label || 'Original'), '-metadata:s:a:0', 'handler_name=' + (a0.label || 'Original'), '-disposition:a:0', 'default',
+      ...extras.flatMap((e, i) => ['-metadata:s:a:' + (i + 1), 'language=' + e.lang, '-metadata:s:a:' + (i + 1), 'title=' + e.label, '-metadata:s:a:' + (i + 1), 'handler_name=' + e.label, '-disposition:a:' + (i + 1), '0']),
+      '-movflags', '+faststart', out];
+    try { run('ffmpeg', args); rc('copyto', out, R + o, '--ignore-times'); log('   ', o.split('/').pop(), 'listo'); }
+    catch (e) { log('   ', o.split('/').pop(), 'ERROR:', e.message); }
+    fs.rmSync(local, { force: true }); fs.rmSync(out, { force: true });
+  }
+  marcar();
+}
 function reemplazarOriginal(R, v, local, byPath) {
   const nuevo = v.Path.replace(/\.[^.]+$/, '.mp4');
   if (byPath.has(nuevo)) { log('  ya existe', nuevo, '- se deja el original'); return false; }
@@ -228,9 +264,10 @@ async function calidades(cfg) {
         } catch (e) { log('  ERROR:', e.message); }
         finally { fs.rmSync(w, { recursive: true, force: true }); }
       }
-      if (!necesita && !sinConvertir.length) continue;
-      if (quedan() < 75 * 60e3) { log('Se acaba el tiempo; sigo en la próxima vuelta.'); return; }
-      log('==', v.Path, necesita ? '(calidades)' : '(audios subidos)');
+      const faltaMulti = !man || !man.multi || sinConvertir.length > 0;
+      if (!necesita && !sinConvertir.length && !faltaMulti) continue;
+      if (quedan() < (necesita ? 75 : 25) * 60e3) { log('Se acaba el tiempo; sigo en la próxima vuelta.'); return; }
+      log('==', v.Path, necesita ? '(calidades)' : sinConvertir.length ? '(audios subidos)' : '(idiomas dentro del video)');
       const w = fs.mkdtempSync(path.join(TRABAJO, 'v-'));
       try {
         if (necesita) {
@@ -252,6 +289,7 @@ async function calidades(cfg) {
           run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', local, '-map', '0:a:0', '-vn', '-c:a', 'aac', '-b:a', '192k', '-ac', '2', '-movflags', '+faststart', m4a]);
           rcv('copyto', m4a, R + s.Path.replace(/\.[^.]+$/, '.m4a'));
         }
+        embeberAudios(R, v, aux, w);
         log('  OK');
       } catch (e) { log('  ERROR:', e.message); }
       finally { fs.rmSync(w, { recursive: true, force: true }); }
