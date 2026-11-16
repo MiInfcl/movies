@@ -569,7 +569,8 @@ async function escanear(log, btn) {
     linea('Revisando solicitudes…');
     const fin = await api('/api/escanear', { fin: true });
     const t = 'Escaneo listo.' + (fin.llegaron.length ? ` Llegaron: ${fin.llegaron.join(', ')}.` + (fin.correos ? ` Se enviaron ${fin.correos} aviso${fin.correos > 1 ? 's' : ''} por correo.` : '') + (fin.sinCorreo ? ` ${fin.sinCorreo} persona(s) sin correo para avisar.` : '') : ' No había solicitudes por cerrar.');
-    linea(t); msg(t); contarSols(); render(true);
+    const rob = { despertado: ' El robot ya partió a hacer las calidades de lo nuevo.', 'en-fila': ' El robot está trabajando; al terminar parte otra vuelta con lo nuevo.', trabajando: ' El robot ya tiene una vuelta en fila.', 'sin-llave': ' (El robot pasa solo cada 15 minutos: falta su llave de GitHub para despertarlo al escanear.)', error: ' (No pude despertar al robot; pasa solo cada 15 minutos.)' }[fin.robot] || '';
+    linea(t + rob); msg(t + rob); contarSols(); render(true);
   } catch (e) { linea('Error: ' + e.message); msg(e.message, true); }
   bt.forEach(b => { b.disabled = false; b.classList.remove('girando'); });
 }
