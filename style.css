@@ -105,6 +105,11 @@ main{padding:20px 20px 60px}
 .poster .bot button:hover,.poster .bot a:hover{background:var(--acc)}
 .poster .bot svg.i{width:15px;height:15px}
 .card .nom{margin-top:9px;height:calc(var(--name) - 8px);font-size:.92rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+/* Celular: mantener presionada una película = pasar el mouse por encima */
+.card.vista{z-index:3}.card.vista .poster{transform:scale(1.06);box-shadow:0 16px 40px rgba(0,0,0,.55)}.card.vista .info,.card.vista .bot{opacity:1}
+@media (hover:none){.card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}.card img{-webkit-user-drag:none}.poster .bot{pointer-events:none}.card.vista .bot{pointer-events:auto}}
+.lerr.info{color:var(--acc2)}
+#pend table td{vertical-align:middle}#regEst{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}#regEst button{flex:none}#regEst .t{flex-direction:column;gap:3px;flex:1;min-width:200px}#regEst{margin-bottom:12px}
 @media (hover:hover){
   .card:hover,.card:focus-visible{z-index:3}
   .card:hover .poster,.card:focus-visible .poster{transform:scale(1.06);box-shadow:0 16px 40px rgba(0,0,0,.55)}
@@ -164,7 +169,7 @@ main{padding:20px 20px 60px}
 .tabs button:hover{background:transparent;color:var(--tx)}.tabs button.on{color:var(--tx);border-bottom-color:var(--acc)}
 #pc{display:flex;flex-direction:column;gap:12px;min-height:200px}
 .barra-sol{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.barra-sol .seg{width:auto}.barra-sol .seg button{flex:none;padding:7px 14px}.cuantas{color:var(--mut);font-size:.82rem}
-.tabla{overflow:auto;max-height:58vh}
+.tabla{overflow:auto;max-height:58vh;flex:none}
 table.sols th{position:sticky;top:0;background:#0b1a3b;text-align:left;padding:0;z-index:1}
 table.sols th button{background:transparent;border:0;color:var(--mut);padding:8px 6px;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 table.sols th button:hover,table.sols th button.on{color:var(--tx);background:transparent}

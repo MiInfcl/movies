@@ -17,6 +17,7 @@ const ICON = {
   file: I('<path d="M7 3h6l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M13 3v5h5"/>'),
   play: '<svg class="i" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg>',
   dl: I('<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/>'),
+  rei: I('<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4h4"/>'),
   more: '<svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>'
 };
 navigator.serviceWorker?.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
@@ -41,14 +42,16 @@ $('#aReg').onclick = e => { e.preventDefault(); $('#eReg').textContent = ''; sho
 $('#aEnt').onclick = e => { e.preventDefault(); show('login'); };
 $('#regP').addEventListener('input', () => { const c = $('#regP').value; document.querySelectorAll('#reglas li').forEach(li => li.classList.toggle('ok', REGLAS[li.dataset.r](c))); });
 $('#vReg').addEventListener('submit', async e => {
-  e.preventDefault(); const err = $('#eReg'); err.textContent = '';
+  e.preventDefault(); const err = $('#eReg'); err.textContent = ''; err.classList.remove('info');
   const clave = $('#regP').value;
   if (!Object.values(REGLAS).every(f => f(clave))) return err.textContent = 'La contraseña no cumple todas las reglas.';
   if (clave !== $('#regP2').value) return err.textContent = 'Las contraseñas no coinciden.';
   $('#bReg').disabled = true;
   try {
-    yo = (await api('/api/registro', { nombre: $('#regN').value.trim(), correo: $('#regC').value.trim(), clave, web: $('#rweb').value })).usuario;
-    $('#regP').value = $('#regP2').value = ''; start();
+    const r = await api('/api/registro', { nombre: $('#regN').value.trim(), correo: $('#regC').value.trim(), clave, web: $('#rweb').value });
+    $('#regP').value = $('#regP2').value = '';
+    if (r.revision) { err.classList.add('info'); err.textContent = r.revision; $('#bReg').disabled = false; return; }
+    yo = r.usuario; start();
   } catch (x) { err.textContent = x.message; }
   $('#bReg').disabled = false;
 });
@@ -60,13 +63,17 @@ $('#vLogin').addEventListener('submit', async e => {
 });
 let tokenClient = null;
 $('#bLogin').onclick = () => {
-  $('#eLogin').textContent = '';
+  $('#eLogin').textContent = ''; $('#eLogin').classList.remove('info');
   if (!window.google?.accounts?.oauth2) return $('#eLogin').textContent = 'Google todavía no carga. Intenta de nuevo.';
   tokenClient = tokenClient || google.accounts.oauth2.initTokenClient({
     client_id: C.CLIENT_ID, scope: 'openid email profile',
     callback: async r => {
       if (r.error) return $('#eLogin').textContent = r.error_description || r.error;
-      try { yo = (await api('/api/google', { token: r.access_token })).usuario; start(); } catch (x) { $('#eLogin').textContent = x.message; }
+      try {
+        const g = await api('/api/google', { token: r.access_token });
+        if (g.revision) { $('#eLogin').classList.add('info'); $('#eLogin').textContent = g.revision; return; }
+        yo = g.usuario; start();
+      } catch (x) { $('#eLogin').textContent = x.message; }
     },
     error_callback: e => { $('#eLogin').textContent = e.message || 'No se pudo iniciar sesión con Google.'; }
   });
@@ -182,7 +189,7 @@ function tarjeta({ f, i }) {
       <div class="poster">${p.caratula ? `<img loading="lazy" alt="" src="${esc(p.caratula)}">` : `<div class="ph">${esc(t)}</div>`}
         ${f.oculto ? '<span class="tag">Oculto</span>' : ''}
         <div class="info"><h3>${esc(t)}</h3><p>${esc(p.sinopsis || 'Sin sinopsis todavía.')}</p>${p.idiomas ? `<div class="idi"><span><b>Audio</b> ${esc(listaIdiomas(p.idiomas.audio))}</span>${p.idiomas.subs.length ? `<span><b>Subtítulos</b> ${esc(listaIdiomas(p.idiomas.subs))}</span>` : ''}</div>` : ''}${p.generos && p.generos.length ? `<div class="gen">${esc(p.generos.slice(0, 3).join(' · '))}${p.nota ? ' · ★ ' + String(p.nota).replace('.', ',') : ''}</div>` : ''}</div>
-        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() || (f.prog && f.prog.t > 0) ? `<button type="button" data-more="${i}" title="Más opciones">${ICON.more}</button>` : ''}</div>
+        <div class="bot"><button type="button" data-play="${i}" title="Reproducir">${ICON.play}</button><a href="${src}&dl=1" title="Descargar" data-stop="1">${ICON.dl}</a>${esAdmin() ? `<button type="button" data-more="${i}" title="Más opciones">${ICON.more}</button>` : f.prog && f.prog.t > 0 ? `<button type="button" data-rei="${i}" title="Ver desde el principio">${ICON.rei}</button>` : ''}</div>
         ${mt ? `<span class="meta">${esc(mt)}</span>` : ''}${f.prog && f.prog.d ? `<span class="prog" title="Visto ${Math.min(100, Math.round(f.prog.t / f.prog.d * 100))} %"><i style="width:${Math.min(100, f.prog.t / f.prog.d * 100)}%"></i></span>` : ''}
       </div><div class="nom" title="${esc(f.nombre)}">${esc(t)}</div></div>`;
 }
@@ -253,8 +260,22 @@ function abrir(f) {
     inicio: k === 'video' && f.prog && f.prog.t < f.prog.d - 90 ? f.prog.t : 0,
     progreso: k === 'video' ? (t, d) => { f.prog = { t, d }; api('/api/progreso', { id: f.id, t, d, nombre: f.nombre }).catch(() => {}); } : null });
 }
+let lpT = 0, lpHecho = false, lpX = 0, lpY = 0;
+const quitarVista = (salvo) => document.querySelectorAll('.card.vista').forEach(x => x !== salvo && x.classList.remove('vista'));
+$('#grid').addEventListener('touchstart', e => {
+  const c = e.target.closest('.card'); lpHecho = false; clearTimeout(lpT); if (!c || e.touches.length > 1) return;
+  lpX = e.touches[0].clientX; lpY = e.touches[0].clientY;
+  lpT = setTimeout(() => { lpHecho = true; quitarVista(c); c.classList.add('vista'); try { navigator.vibrate && navigator.vibrate(12); } catch {} }, 450);
+}, { passive: true });
+$('#grid').addEventListener('touchmove', e => { const t = e.touches[0]; if (Math.abs(t.clientX - lpX) > 10 || Math.abs(t.clientY - lpY) > 10) clearTimeout(lpT); }, { passive: true });
+['touchend', 'touchcancel'].forEach(t => $('#grid').addEventListener(t, () => clearTimeout(lpT), { passive: true }));
+$('#grid').addEventListener('contextmenu', e => { if (e.target.closest('.card')) e.preventDefault(); });
+document.addEventListener('touchstart', e => { if (!e.target.closest('.card.vista') && !e.target.closest('#menu')) quitarVista(); }, { passive: true });
+addEventListener('scroll', () => quitarVista(), { passive: true });
 $('#grid').addEventListener('click', e => {
+  if (lpHecho) { lpHecho = false; e.preventDefault(); return; }   // el dedo se levantó después de mantener presionado: solo se muestra
   if (e.target.closest('[data-stop]')) return;
+  const r = e.target.closest('[data-rei]'); if (r) { e.stopPropagation(); return reiniciarProgreso(items[+r.dataset.rei]); }
   const m = e.target.closest('[data-more]'); if (m) { e.stopPropagation(); return menuItem(items[+m.dataset.more], m); }
   const c = e.target.closest('.card'); if (c) abrir(items[+c.dataset.i]);
 });
@@ -278,10 +299,11 @@ function abrirMenu(anchor, html, acts) {
   menu.style.top = (r.bottom + h + 8 < innerHeight ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
   menu.onclick = ev => { const a = ev.target.closest('button')?.dataset.a; if (!a) return; cerrarMenu(); acts[a](); };
 }
+async function reiniciarProgreso(f) { try { msg((await api('/api/progreso/borrar', { id: f.id })).mensaje); f.prog = null; render(true); } catch (e) { msg(e.message, true); } }
 function menuItem(f, anchor) {
   const v = kindOf(f) === 'video', visto = v && f.prog && f.prog.t > 0;
-  const reiniciar = async () => { try { msg((await api('/api/progreso/borrar', { id: f.id })).mensaje); f.prog = null; render(true); } catch (e) { msg(e.message, true); } };
-  if (!esAdmin()) return visto && abrirMenu(anchor, '<button data-a="rei">Restablecer progreso</button>', { rei: reiniciar });
+  const reiniciar = () => reiniciarProgreso(f);
+  if (!esAdmin()) return;
   abrirMenu(anchor, '<button data-a="ren">Renombrar</button><button data-a="mov">Mover a…</button><button data-a="dup">Duplicar</button>'
     + (v ? '<button data-a="ide">Elegir qué película es</button><button data-a="edp">Audio, subtítulos y calidades</button>' : '')
     + (visto ? '<button data-a="rei">Restablecer progreso</button>' : '')
@@ -556,14 +578,23 @@ async function panelEspacio(el) {
 
 // Usuarios
 async function panelUsuarios(el) {
-  el.innerHTML = '<p>Cualquiera con una cuenta de Google puede entrar y ver la biblioteca. Aquí puedes hacer admin a alguien o crear usuarios con contraseña.</p><div class="tabla"><table id="ut"><tr><td>Cargando…</td></tr></table></div>'
+  el.innerHTML = '<div class="disco" id="regEst"><div class="t"><span>Registros</span><small>Cargando…</small></div></div><div id="pend"></div>'
+    + '<p>Aquí puedes hacer admin a alguien o crear usuarios con contraseña.</p><div class="tabla"><table id="ut"><tr><td>Cargando…</td></tr></table></div>'
     + '<h3 style="margin-top:4px">Crear o cambiar</h3><input class="t" id="un" placeholder="Usuario, o correo de Google" autocomplete="off" autocapitalize="none">'
     + '<input class="t" id="uc" type="password" placeholder="Contraseña (mínimo 8; vacía si es un correo de Google)" autocomplete="new-password">'
     + '<select class="t" id="ur"><option value="usuario">Usuario: ve, reproduce, descarga y solicita</option><option value="admin">Admin: además agrega, organiza y conecta su Drive</option></select>'
     + '<div class="err" id="uerr"></div><div class="acts"><button type="button" id="uok">Guardar</button></div>';
   const err = el.querySelector('#uerr');
   const cargar = async () => {
-    const { usuarios } = await api('/api/usuarios');
+    const { usuarios, registro, pendientes } = await api('/api/usuarios');
+    el.querySelector('#regEst').innerHTML = `<div class="t"><span>Registros ${registro ? 'abiertos' : 'cerrados'}</span><small>${registro ? 'Cualquiera puede crear su cuenta, con Google o con correo y contraseña.' : 'Las cuentas nuevas quedan en revisión: te llega un correo y aquí las apruebas o rechazas.'}</small></div><button type="button" class="${registro ? 'sec' : ''}" id="regTg">${registro ? 'Cerrar registros' : 'Abrir registros'}</button>`;
+    el.querySelector('#regTg').onclick = async () => { try { msg((await api('/api/usuarios', { op: 'registro', abierto: !registro })).mensaje); await cargar(); } catch (x) { msg(x.message, true); } };
+    el.querySelector('#pend').innerHTML = pendientes.length ? '<h3 style="margin:4px 0 8px">En revisión</h3><div class="tabla"><table>' + pendientes.map(x => `<tr><td>${x.visible ? esc(x.visible) + ' <small>' + esc(x.correo) + '</small>' : esc(x.correo)} <small>${x.google ? 'Google' : 'Correo'} · ${esc(hace(x.desde))}</small></td><td style="white-space:nowrap"><button type="button" data-ap="${esc(x.correo)}">Aprobar</button> <button type="button" class="danger" data-rc="${esc(x.correo)}">Rechazar</button></td></tr>`).join('') + '</table></div>' : '';
+    el.querySelector('#pend').onclick = async e => {
+      const b = e.target.closest('button[data-ap],button[data-rc]'); if (!b) return;
+      b.disabled = true;
+      try { msg((await api('/api/usuarios', { op: b.dataset.ap ? 'aprobar' : 'rechazar', correo: b.dataset.ap || b.dataset.rc })).mensaje); await cargar(); } catch (x) { msg(x.message, true); b.disabled = false; }
+    };
     usuarios.sort((a, b) => (a.rol === b.rol ? a.nombre.localeCompare(b.nombre) : a.rol === 'admin' ? -1 : 1));
     el.querySelector('#ut').innerHTML = usuarios.map(u => `<tr><td>${u.visible ? esc(u.visible) + ' <small>' + esc(u.nombre) + '</small>' : esc(u.nombre)}${u.google ? ' <small>Google</small>' : ''}</td><td>${u.rol}</td><td>${u.nombre === yo.nombre ? '' : `<button class="sec" type="button" data-e="${esc(u.nombre)}" data-r="${u.rol}">Editar</button> <button class="danger" type="button" data-b="${esc(u.nombre)}">Borrar</button>`}</td></tr>`).join('');
   };
@@ -591,7 +622,10 @@ async function panelCorreo(el) {
     el.innerHTML = `<p>Cuando llega una película que alguien solicitó, Butaca le avisa por correo. Los correos salen desde un Gmail que conectas aquí, y las respuestas llegan a <b>movies@emailrouting.xyz</b>.</p>
       <div class="disco"><div class="t"><span>Gmail para los avisos</span><small>${gmail ? esc(gmail) : 'sin conectar'}</small></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" id="gcon">${gmail ? 'Cambiar o reconectar' : 'Conectar Gmail'}</button>${gmail ? '<button type="button" class="sec" id="gprueba">Enviarme un correo de prueba</button>' : ''}</div>
-      <p>Solo reciben aviso quienes entraron con Google (los usuarios con contraseña no tienen correo).</p>`;
+      <p>Cada sábado a las 10:00 (hora de Chile) sale también un <b>resumen con las películas que llegaron en la semana</b> a todos los que tienen correo y no se desuscribieron (desde el menú de su foto o con el enlace «Unsubscribe» del correo). Si en la semana no llegó nada, no se envía.</p>
+      ${gmail ? '<div><button type="button" class="sec" id="gsem">Enviarme el resumen de esta semana</button></div>' : ''}
+      <p>Los usuarios creados sin correo (solo con nombre) no reciben avisos.</p>`;
+    if ($('#gsem')) $('#gsem').onclick = async () => { $('#gsem').disabled = true; try { msg((await api('/api/semanal/prueba', {})).mensaje); } catch (x) { msg(x.message, true); } $('#gsem').disabled = false; };
     $('#gcon').onclick = () => { location.href = API + '/api/gmail/conectar'; };
     if ($('#gprueba')) $('#gprueba').onclick = async () => { try { msg((await api('/api/gmail/prueba', {})).mensaje); } catch (x) { msg(x.message, true); } };
   } catch (e) { el.textContent = e.message; }
@@ -654,7 +688,13 @@ async function contarSols() {
 // Menú de la cuenta
 $('#bYo').onclick = e => {
   e.stopPropagation();
-  abrirMenu($('#bYo'), `<div class="who"><b>${esc(yo.visible || yo.nombre)}</b>${yo.visible ? esc(yo.nombre) + '<br>' : ''}${yo.rol === 'admin' ? 'Administrador' : 'Usuario'}</div><hr><button data-a="out">Cerrar sesión</button>`, { out: salir });
+  const ok = '<svg class="i chk" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>';
+  abrirMenu($('#bYo'), `<div class="who"><b>${esc(yo.visible || yo.nombre)}</b>${yo.visible ? esc(yo.nombre) + '<br>' : ''}${yo.rol === 'admin' ? 'Administrador' : 'Usuario'}</div><hr>`
+    + (yo.correo ? `<button data-a="sem" class="${yo.semanal ? 'on' : ''}" title="Cada sábado, un correo con las películas que llegaron en la semana">Resumen semanal por correo${yo.semanal ? ok : ''}</button><hr>` : '')
+    + '<button data-a="out">Cerrar sesión</button>', {
+    out: salir,
+    sem: async () => { try { const r = await api('/api/semanal', { on: !yo.semanal }); yo.semanal = r.semanal; msg(r.mensaje); } catch (x) { msg(x.message, true); } }
+  });
 };
 
 // ---------- Arranque ----------
