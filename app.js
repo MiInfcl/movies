@@ -361,7 +361,7 @@ async function ventanaStremio(nuevo = false) {
     async () => { await navigator.clipboard.writeText(url); msg('Enlace copiado.'); }, 'Copiar enlace', false, 'Cerrar');
   $('#stmUrl').onclick = e => e.target.select();
   const acts = box.querySelector('.acts:last-child'), b = document.createElement('button');
-  b.type = 'button'; b.className = 'sec'; b.textContent = 'Sacar un enlace nuevo'; b.style.marginRight = 'auto';
+  b.type = 'button'; b.className = 'sec'; b.textContent = 'Enlace nuevo'; b.style.marginRight = 'auto';
   b.onclick = () => ventana('<h3>¿Sacar un enlace nuevo?</h3><p>El enlace anterior dejará de funcionar y tendrás que volver a instalar el addon en Stremio.</p>', () => ventanaStremio(true), 'Sacar enlace nuevo', true);
   acts.prepend(b);
 }
