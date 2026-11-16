@@ -86,10 +86,13 @@ main{padding:20px 20px 60px}
 .carpeta svg.i{color:var(--acc2)}.carpeta .x{width:28px;height:28px}
 .carpeta.oc,.card.oc .poster img,.fila.oc{opacity:.5}
 
-/* Grilla de carátulas: en una pantalla 1080p caben 6 de ancho y 3 de alto */
-.grid{--gap:22px;--name:30px;--w:clamp(150px,calc((100vw - 120px - 5 * var(--gap)) / 6),270px);
- display:grid;grid-template-columns:repeat(auto-fill,var(--w));gap:var(--gap);justify-content:center;max-width:calc(6 * var(--w) + 5 * var(--gap));margin:0 auto}
-.card{position:relative;width:var(--w);cursor:pointer;outline:none}
+/* Grilla de carátulas: la cantidad por fila depende del ancho (5 en un PC 1080p, 2 en un celular, 1 en uno muy angosto) */
+.grid{--gap:22px;--name:30px;--cols:5;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:var(--gap);max-width:1720px;margin:0 auto}
+@media (max-width:1500px){.grid{--cols:4}}
+@media (max-width:1100px){.grid{--cols:3;--gap:18px}}
+@media (max-width:700px){.grid{--cols:2;--gap:14px}}
+@media (max-width:330px){.grid{--cols:1}}
+.card{position:relative;min-width:0;cursor:pointer;outline:none}
 .poster{position:relative;width:100%;aspect-ratio:2/3;border-radius:8px;overflow:hidden;background:#0d1c3d;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .22s ease,box-shadow .22s ease}
 .poster img{width:100%;height:100%;object-fit:cover;display:block}
 .poster .ph{position:absolute;inset:0;display:flex;align-items:flex-end;padding:14px;font-weight:700;font-size:1.05rem;line-height:1.2;background:linear-gradient(160deg,#1d4fa8,#0a1d45);color:#dfe9ff;word-break:break-word}
@@ -116,8 +119,6 @@ main{padding:20px 20px 60px}
   .card:hover .info,.card:hover .bot,.card:focus-visible .info,.card:focus-visible .bot{opacity:1}
 }
 @media (max-width:700px){
-  .grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));--gap:12px;max-width:none}
-  .card{width:auto}
   .top{gap:8px;padding:0 10px}.top .marca span,.crumbs{display:none}.buscar{width:auto;flex:1}
   main{padding:14px 12px 50px}.yo .nom{display:none}.yo{padding:3px}
   .pill .barra{display:none}
