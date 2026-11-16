@@ -175,6 +175,8 @@ async function pedidos(cfg) {
 
 // ---------- Calidades y pistas de toda la biblioteca ----------
 async function calidades(cfg) {
+  // 1) Cada Drive: listar y sacar pistas a los videos nuevos (rápido)
+  const ctx = [];
   for (const d of cfg.drives) {
     const R = `d_${d.k}:`;
     let todo; try { todo = JSON.parse(rc('lsjson', R, '-R', '--no-modtime', '--no-mimetype', '--filter', '- _*/**', '--filter', '- .*/**').stdout); } catch (e) { log('Drive', d.k, 'no responde:', e.message); continue; }
@@ -187,7 +189,7 @@ async function calidades(cfg) {
     // Primero los videos nuevos (sin pistas): se les sacan audio y subtítulos, que es rápido; las calidades van después
     const nuevos = videos.filter(v => !byPath.has(auxDe(v) + '/pistas.json'));
     for (const v of nuevos) {
-      if (quedan() < 30 * 60e3) return;
+      if (quedan() < 30 * 60e3) break;
       log('== nuevo:', v.Path);
       const w = fs.mkdtempSync(path.join(TRABAJO, 'n-'));
       try {
@@ -197,7 +199,14 @@ async function calidades(cfg) {
       } catch (e) { log('  ERROR:', e.message); }
       finally { fs.rmSync(w, { recursive: true, force: true }); }
     }
-    for (const v of videos) {
+    ctx.push({ R, files, byPath, auxDe, videos });
+  }
+  // 2) Calidades intercalando los Drive (uno de cada uno), para que ninguno espere a que otro termine
+  const cola = [];
+  for (let i = 0; ctx.some(c => i < c.videos.length); i++) for (const c of ctx) if (i < c.videos.length) cola.push([c, c.videos[i]]);
+  {
+    for (const [c, v] of cola) {
+      const { R, files, byPath, auxDe } = c;
       const aux = auxDe(v);
       // ¿Le falta algo? (pistas.json v2, o audios subidos que el navegador no puede reproducir)
       let man = null; if (byPath.has(aux + '/pistas.json')) { try { man = JSON.parse(rc('cat', R + aux + '/pistas.json').stdout); } catch {} }
