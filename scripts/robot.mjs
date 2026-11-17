@@ -110,7 +110,7 @@ function fusionar(out, viejo) {
   const p = path.join(out, 'pistas.json'), m = JSON.parse(fs.readFileSync(p, 'utf8')), fuera = new Set(viejo.ignorar || []);
   for (const k of ['audios', 'subs']) {
     const antes = new Map((viejo[k] || []).filter(x => x.file).map(x => [x.file, x]));
-    m[k] = m[k].filter(x => !x.file || !fuera.has(x.file)).map((x, i) => { const o = k === 'audios' && i === 0 ? (viejo.audios || [])[0] : antes.get(x.file); return o ? { ...x, label: o.label, lang: o.lang } : x; });
+    m[k] = m[k].filter(x => !x.file || !fuera.has(x.file)).map((x, i) => { const o = k === 'audios' && i === 0 ? (viejo.audios || [])[0] : antes.get(x.file); return o ? { ...x, label: o.label, lang: o.lang, ...(typeof o.forzado === 'boolean' ? { forzado: o.forzado } : {}) } : x; });
     const hay = new Set(m[k].map(x => x.file));
     for (const o of viejo[k] || []) if (o.file && !hay.has(o.file)) m[k].push(o);
   }

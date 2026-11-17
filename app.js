@@ -411,19 +411,24 @@ async function editarPistas(f) {
   const m = r.man || {}, elegido = {};
   // Lo que ya dice el pistas.json
   (m.audios || []).slice(1).forEach(a => a.file && (elegido[a.file] = 'a:' + (a.lang && a.lang !== 'und' ? codigoDe({ c: a.lang }) || a.lang : codigoDe(a.label || ''))));
-  (m.subs || []).forEach(t => elegido[t.file] = 's:' + (t.lang && t.lang !== 'und' ? codigoDe({ c: t.lang }) || t.lang : codigoDe(t.label || '')));
+  // Subtítulos forzados (solo carteles y diálogos en otro idioma): los marcados, o los que pesan menos del 20 % del más grande
+  const pesoSub = n => { const x = r.archivos.find(a => a.nombre === n); return x ? +x.size || 0 : 0; };
+  const mayorSub = Math.max(0, ...r.archivos.filter(a => /\.(srt|vtt|ass|ssa)$/i.test(a.nombre)).map(a => +a.size || 0));
+  const esForzado = (n, marca, nombre = '') => marca === true || (marca !== false && (/forz|forced/i.test(n + ' ' + nombre) || (mayorSub >= 30000 && pesoSub(n) > 0 && pesoSub(n) < mayorSub * 0.2)));
+  (m.subs || []).forEach(t => elegido[t.file] = (esForzado(t.file, t.forzado, t.label || '') ? 'f:' : 's:') + (t.lang && t.lang !== 'und' ? codigoDe({ c: t.lang }) || t.lang : codigoDe(t.label || '')));
   (m.calidades || []).forEach(q => elegido[q.file] = 'q:' + q.alto);
   (m.ignorar || []).forEach(n => elegido[n] = 'no');
   // Lo que se adivina por el nombre de un archivo nuevo
   const adivinar = n => {
     let q = /^(\d{3,4})p\.mp4$/i.exec(n); if (q) return 'q:' + q[1];
-    if (/\.(srt|vtt|ass|ssa)$/i.test(n)) return 's:' + codigoDe(n);
+    if (/\.(srt|vtt|ass|ssa)$/i.test(n)) return (esForzado(n) ? 'f:' : 's:') + codigoDe(n);
     if (/\.(m4a|mp3|aac|ogg|opus|flac|wav|ac3|eac3|dts|mka|mp2|wma)$/i.test(n)) return 'a:' + codigoDe(n);
     if (/\.(mp4|m4v|webm|mov|mkv)$/i.test(n)) { q = /(2160|1440|1080|720|480|360|240|144)/.exec(n); return 'q:' + (q ? q[1] : 720); }
     return 'no';
   };
   const opciones = val => `<optgroup label="Audio">${IDIOMAS.map(([c, t]) => `<option value="a:${c}"${val === 'a:' + c ? ' selected' : ''}>Audio en ${t.toLowerCase()}</option>`).join('')}</optgroup>
     <optgroup label="Subtítulos">${IDIOMAS.map(([c, t]) => `<option value="s:${c}"${val === 's:' + c ? ' selected' : ''}>Subtítulos en ${t.toLowerCase()}</option>`).join('')}</optgroup>
+    <optgroup label="Subtítulos forzados (solo carteles y otros idiomas)">${IDIOMAS.map(([c, t]) => `<option value="f:${c}"${val === 'f:' + c ? ' selected' : ''}>Subtítulos forzados en ${t.toLowerCase()}</option>`).join('')}</optgroup>
     <optgroup label="Calidad de video">${ALTURAS.map(a => `<option value="q:${a}"${val === 'q:' + a ? ' selected' : ''}>Video en ${a === 2160 ? '4K' : a + 'p'}</option>`).join('')}</optgroup>
     <option value="no"${val === 'no' ? ' selected' : ''}>No usar</option>`;
   const a0 = (m.audios || [])[0] || {}, a0c = a0.lang && a0.lang !== 'und' ? codigoDe({ c: a0.lang }) : codigoDe(a0.label || '');
@@ -469,7 +474,7 @@ async function editarPistas(f) {
     for (const row of box.querySelectorAll('.plista .pfila[data-f]')) {
       const file = row.dataset.f, [t, v] = row.querySelector('select').value.split(':');
       if (t === 'a') p.audios.push({ file, lang: v, label: nomIdioma(v) });
-      else if (t === 's') p.subs.push({ file, lang: v, label: nomIdioma(v) });
+      else if (t === 's' || t === 'f') p.subs.push({ file, lang: v, label: nomIdioma(v), forzado: t === 'f' });
       else if (t === 'q') { if (altos.has(+v)) { err.textContent = 'Hay dos archivos marcados como video en ' + v + 'p.'; ok.disabled = false; return; } altos.add(+v); p.calidades.push({ file, alto: +v }); }
       else p.ignorar.push(file);
     }
