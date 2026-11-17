@@ -596,31 +596,57 @@ async function panelEspacio(el) {
 
 // Usuarios
 async function panelUsuarios(el) {
-  el.innerHTML = '<div class="disco" id="regEst"><div class="t"><span>Registros</span><small>Cargando…</small></div></div><div id="pend"></div>'
-    + '<p>Aquí puedes hacer admin a alguien o crear usuarios con contraseña.</p><div class="tabla"><table id="ut"><tr><td>Cargando…</td></tr></table></div>'
+  el.innerHTML = '<div class="regbox" id="regEst"><div class="tx"><b>Registros</b><small>Cargando…</small></div></div><div id="pend"></div>'
+    + '<h3 class="ush">Usuarios <small id="ucount"></small></h3><p class="usp">Toca el lápiz para cambiar el rol o la contraseña de alguien.</p><div class="usrs" id="ut"><p class="usp">Cargando…</p></div>'
     + '<h3 style="margin-top:4px">Crear o cambiar</h3><input class="t" id="un" placeholder="Usuario, o correo de Google" autocomplete="off" autocapitalize="none">'
     + '<input class="t" id="uc" type="password" placeholder="Contraseña (mínimo 8; vacía si es un correo de Google)" autocomplete="new-password">'
     + '<select class="t" id="ur"><option value="usuario">Usuario: ve, reproduce, descarga y solicita</option><option value="admin">Admin: además agrega, organiza y conecta su Drive</option></select>'
     + '<div class="err" id="uerr"></div><div class="acts"><button type="button" id="uok">Guardar</button></div>';
   const err = el.querySelector('#uerr');
+  const quitados = new Set();   // la lista de Cloudflare tarda unos segundos en olvidar a un usuario borrado
+  const ICO_ED = I('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'), ICO_DEL = I('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>');
+  const fila = u => {
+    const mio = u.nombre === yo.nombre, nom = u.visible || u.nombre;
+    const sub = [u.visible ? u.nombre : '', u.google ? 'Google' : 'Contraseña'].filter(Boolean).join(' · ');
+    return `<div class="usr" data-n="${esc(u.nombre)}" data-r="${u.rol}"><span class="av">${esc((nom[0] || '?').toUpperCase())}</span>`
+      + `<div class="tx"><b>${esc(nom)}${mio ? ' <em>(tú)</em>' : ''}</b><small><span class="rm">${u.rol === 'admin' ? 'Admin' : 'Usuario'} · </span>${esc(sub)}</small></div>`
+      + `<span class="rol${u.rol === 'admin' ? ' adm' : ''}">${u.rol === 'admin' ? 'Admin' : 'Usuario'}</span>`
+      + (mio ? '<span class="acc"></span>' : `<span class="acc"><button class="ico" type="button" data-e title="Editar">${ICO_ED}</button><button class="ico mal" type="button" data-b title="Borrar">${ICO_DEL}</button></span>`)
+      + '</div>';
+  };
   const cargar = async () => {
     const { usuarios, registro, pendientes } = await api('/api/usuarios');
-    el.querySelector('#regEst').innerHTML = `<div class="t"><span>Registros ${registro ? 'abiertos' : 'cerrados'}</span><small>${registro ? 'Cualquiera puede crear su cuenta, con Google o con correo y contraseña.' : 'Las cuentas nuevas quedan en revisión: te llega un correo y aquí las apruebas o rechazas.'}</small></div><button type="button" class="${registro ? 'sec' : ''}" id="regTg">${registro ? 'Cerrar registros' : 'Abrir registros'}</button>`;
+    el.querySelector('#regEst').innerHTML = `<div class="tx"><b>Registros ${registro ? 'abiertos' : 'cerrados'}</b><small>${registro ? 'Cualquiera puede crear su cuenta, con Google o con correo y contraseña.' : 'Las cuentas nuevas quedan en revisión: te llega un correo y aquí las apruebas o rechazas.'}</small></div><button type="button" class="${registro ? 'sec' : ''}" id="regTg">${registro ? 'Cerrar registros' : 'Abrir registros'}</button>`;
     el.querySelector('#regTg').onclick = async () => { try { msg((await api('/api/usuarios', { op: 'registro', abierto: !registro })).mensaje); await cargar(); } catch (x) { msg(x.message, true); } };
-    el.querySelector('#pend').innerHTML = pendientes.length ? '<h3 style="margin:4px 0 8px">En revisión</h3><div class="tabla"><table>' + pendientes.map(x => `<tr><td>${x.visible ? esc(x.visible) + ' <small>' + esc(x.correo) + '</small>' : esc(x.correo)} <small>${x.google ? 'Google' : 'Correo'} · ${esc(hace(x.desde))}</small></td><td style="white-space:nowrap"><button type="button" data-ap="${esc(x.correo)}">Aprobar</button> <button type="button" class="danger" data-rc="${esc(x.correo)}">Rechazar</button></td></tr>`).join('') + '</table></div>' : '';
+    el.querySelector('#pend').innerHTML = pendientes.length ? '<h3 class="ush">En revisión</h3><div class="usrs">' + pendientes.map(x => `<div class="usr pend"><span class="av">${esc(((x.visible || x.correo)[0] || '?').toUpperCase())}</span><div class="tx"><b>${esc(x.visible || x.correo)}</b><small>${x.visible ? esc(x.correo) + ' · ' : ''}${x.google ? 'Google' : 'Correo'} · ${esc(hace(x.desde))}</small></div><span class="acc"><button type="button" data-ap="${esc(x.correo)}">Aprobar</button><button type="button" class="sec" data-rc="${esc(x.correo)}">Rechazar</button></span></div>`).join('') + '</div>' : '';
     el.querySelector('#pend').onclick = async e => {
       const b = e.target.closest('button[data-ap],button[data-rc]'); if (!b) return;
       b.disabled = true;
       try { msg((await api('/api/usuarios', { op: b.dataset.ap ? 'aprobar' : 'rechazar', correo: b.dataset.ap || b.dataset.rc })).mensaje); await cargar(); } catch (x) { msg(x.message, true); b.disabled = false; }
     };
-    usuarios.sort((a, b) => (a.rol === b.rol ? a.nombre.localeCompare(b.nombre) : a.rol === 'admin' ? -1 : 1));
-    el.querySelector('#ut').innerHTML = usuarios.map(u => `<tr><td>${u.visible ? esc(u.visible) + ' <small>' + esc(u.nombre) + '</small>' : esc(u.nombre)}${u.google ? ' <small>Google</small>' : ''}</td><td>${u.rol}</td><td>${u.nombre === yo.nombre ? '' : `<button class="sec" type="button" data-e="${esc(u.nombre)}" data-r="${u.rol}">Editar</button> <button class="danger" type="button" data-b="${esc(u.nombre)}">Borrar</button>`}</td></tr>`).join('');
+    const us = usuarios.filter(u => u && u.nombre && !quitados.has(u.nombre));
+    us.sort((a, b) => (a.rol === b.rol ? (a.visible || a.nombre).localeCompare(b.visible || b.nombre, 'es') : a.rol === 'admin' ? -1 : 1));
+    el.querySelector('#ucount').textContent = us.length;
+    el.querySelector('#ut').innerHTML = us.map(fila).join('');
   };
   el.querySelector('#ut').onclick = async e => {
-    const ed = e.target.closest('button[data-e]'); if (ed) { el.querySelector('#un').value = ed.dataset.e; el.querySelector('#ur').value = ed.dataset.r; el.querySelector('#uc').focus(); return; }
-    const b = e.target.closest('button[data-b]'); if (!b) return;
-    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro?'; return; }
-    try { await api('/api/usuarios', { op: 'borrar', nombre: b.dataset.b }); await cargar(); } catch (x) { err.textContent = x.message; }
+    const row = e.target.closest('.usr'); if (!row) return;
+    const n = row.dataset.n;
+    if (e.target.closest('button[data-e]')) { el.querySelector('#un').value = n; el.querySelector('#ur').value = row.dataset.r; el.querySelector('#un').scrollIntoView({ behavior: 'smooth', block: 'center' }); el.querySelector('#uc').focus({ preventScroll: true }); return; }
+    if (e.target.closest('button[data-b]')) {
+      el.querySelectorAll('.usr .conf').forEach(c => { c.parentNode.classList.remove('pide'); c.remove(); });
+      row.classList.add('pide');
+      row.insertAdjacentHTML('beforeend', `<div class="conf"><span>¿Borrar a <b>${esc(row.querySelector('.tx b').firstChild.textContent)}</b>? Ya no podrá entrar y se pierde lo que llevaba visto.</span><span class="acc"><button type="button" class="sec" data-no>Cancelar</button><button type="button" class="danger" data-si>Borrar</button></span></div>`);
+      return;
+    }
+    if (e.target.closest('button[data-no]')) { row.classList.remove('pide'); row.querySelector('.conf').remove(); return; }
+    const si = e.target.closest('button[data-si]'); if (!si) return;
+    si.disabled = true; si.textContent = 'Borrando…';
+    try {
+      const r = await api('/api/usuarios', { op: 'borrar', nombre: n });
+      quitados.add(n); row.classList.add('fuera'); setTimeout(() => { row.remove(); el.querySelector('#ucount').textContent = el.querySelectorAll('#ut .usr').length; }, 250);
+      msg(r.mensaje || 'Usuario borrado.');
+    } catch (x) { msg(x.message, true); si.disabled = false; si.textContent = 'Borrar'; }
   };
   el.querySelector('#uok').onclick = async () => {
     err.className = 'err'; err.textContent = '';
