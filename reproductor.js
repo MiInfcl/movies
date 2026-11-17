@@ -234,7 +234,7 @@ function menuPrincipal() {
   menu.innerHTML = '';
   if (st0.kind === 'video') menu.append(opcion('Calidad', st0.calidades[st0.q].label, () => lista('Calidad', st0.calidades.map(c => c.label), st0.q, setCalidad, st0.calidades.length < 2 ? 'Las otras calidades (720p, 480p…) se están preparando.' : '')));
   if (st0.audios.length > 1) menu.append(opcion('Audio', conBandera(st0.audios[st0.a]), () => lista('Audio', st0.audios.map(a => conBandera(a)), st0.a, setAudio)));
-  menu.append(opcion('Subtítulos', st0.s < 0 ? 'No' : conBandera(st0.subs[st0.s]), () => lista('Subtítulos', ['No'].concat(st0.subs.map(s => conBandera(s))), st0.s + 1, i => setSub(i - 1))));
+  menu.append(opcion('Subtítulos', st0.s < 0 ? (forzadoAuto() >= 0 ? 'Solo forzados' : 'No') : conBandera(st0.subs[st0.s]), () => lista('Subtítulos', ['No'].concat(st0.subs.map(s => conBandera(s))), st0.s + 1, i => setSub(i - 1))));
   const vel = [0.5, 0.75, 1, 1.25, 1.5, 2];
   menu.append(opcion('Velocidad', v.playbackRate === 1 ? 'Normal' : v.playbackRate + '×', () => lista('Velocidad', vel.map(x => x === 1 ? 'Normal' : x + '×'), vel.indexOf(v.playbackRate), i => { v.playbackRate = vel[i]; })));
 }
@@ -271,7 +271,7 @@ function sync(forzar) {
   if (v.paused || v.seeking || v.readyState < 3) ext.pause(); else if (ext.paused) ext.play().catch(() => {});
 }
 function setAudio(i) {
-  const a = st0.audios[i]; st0.a = i; pref.set('audio', a.label);
+  const a = st0.audios[i]; st0.a = i; pref.set('audio', a.label); aplicarSubs();
   if (!a.src) { if (ext) ext.pause(); silenciarInterno(false); return; }
   if (!ext) {
     ext = document.createElement('audio'); ext.preload = 'auto'; ext.crossOrigin = st0.co; $('.rp-media').appendChild(ext);
@@ -283,17 +283,24 @@ function setAudio(i) {
   if (ext.getAttribute('src') !== a.src) { ext.src = a.src; ext.addEventListener('loadedmetadata', () => sync(true), { once: true }); } else sync(true);
 }
 // --- Subtítulos (dibujados aquí) ---
+// Subtítulos forzados (carteles y diálogos en otro idioma): con los subtítulos apagados, se muestran solos
+// si son del mismo idioma del audio que suena.
+const LG = { spa: 'es', es: 'es', eng: 'en', en: 'en', por: 'pt', pt: 'pt', fre: 'fr', fra: 'fr', fr: 'fr', ita: 'it', it: 'it', ger: 'de', deu: 'de', de: 'de', jpn: 'ja', ja: 'ja', kor: 'ko', ko: 'ko' };
+const idioma = x => { if (!x) return ''; const l = LG[String(x.lang || '').toLowerCase()]; if (l) return l; const t = String(x.label || '').toLowerCase();
+  return /espa|latin|castell/.test(t) ? 'es' : /ingl|english/.test(t) ? 'en' : /portu/.test(t) ? 'pt' : /fran/.test(t) ? 'fr' : /ital/.test(t) ? 'it' : ''; };
+function forzadoAuto() { if (!st0 || st0.s >= 0) return -1; const la = idioma(st0.audios[st0.a]); return la ? st0.subs.findIndex(s => s.forzado && idioma(s) === la) : -1; }
+const subActivo = () => st0.s >= 0 ? st0.s : forzadoAuto();
+function aplicarSubs() { if (!v) return; const i = subActivo(); [...v.textTracks].forEach((tt, j) => { tt.mode = j === i ? 'hidden' : 'disabled'; }); pintarSubs(); }
 function setSub(i) {
   st0.s = i; $('.rp-cc').classList.toggle('on', i >= 0);
-  [...v.textTracks].forEach((tt, j) => { tt.mode = j === i ? 'hidden' : 'disabled'; });
-  $('.rp-subs').innerHTML = '';
+  aplicarSubs();
   if (i >= 0) { pref.set('sub', st0.subs[i].label); st0.ultimoSub = i; } else pref.set('sub', null);
 }
 $('.rp-cc').onclick = () => { if (!st0 || !st0.subs.length) return aviso('Este video no tiene subtítulos'); setSub(st0.s >= 0 ? -1 : (st0.ultimoSub ?? 0)); aviso(st0.s >= 0 ? 'Subtítulos: ' + st0.subs[st0.s].label : 'Sin subtítulos'); };
 function pintarSubs() {
   const box = $('.rp-subs'); box.innerHTML = '';
-  if (!v || st0.s < 0) return;
-  const tt = v.textTracks[st0.s]; if (!tt || !tt.activeCues) return;
+  if (!v) return; const i = subActivo(); if (i < 0) return;
+  const tt = v.textTracks[i]; if (!tt || !tt.activeCues) return;
   [...tt.activeCues].forEach(c => { const sp = document.createElement('span'); try { sp.append(c.getCueAsHTML()); } catch { sp.textContent = c.text; } box.append(sp, document.createElement('br')); });
 }
 
