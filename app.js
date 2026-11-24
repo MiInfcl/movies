@@ -138,9 +138,10 @@ function idiomaDe(x) {
   return m ? m[0] : null;
 }
 const conBand = n => (bandera(n) ? bandera(n) + ' ' : '') + n;
-const ORDENES = { nombre: 'Nombre', año: 'Año', nota: 'Puntuación', duracion: 'Duración', reciente: 'Recién agregadas', edad: 'Clasificación' };
+const ORDENES = { progreso: 'Progreso', nombre: 'Nombre', año: 'Año', nota: 'Puntuación', duracion: 'Duración', reciente: 'Recién agregadas', edad: 'Clasificación' };
 let vista = (() => { try { return JSON.parse(localStorage.getItem('butaca-vista')) || {}; } catch { return {}; } })();
-vista = { orden: 'nombre', dir: 1, genero: '', audio: '', subs: '', edad: '', ...vista };
+vista = { orden: 'progreso', dir: 1, genero: '', audio: '', subs: '', edad: '', ...vista };
+if (!vista.v2) { vista.orden = 'progreso'; vista.dir = 1; vista.v2 = 1; }   // 2026-11-24: el orden por progreso pasa a ser el de partida
 ['audio', 'subs'].forEach(k => { if (/^Español/.test(vista[k])) vista[k] = 'Español'; });
 const guardarVista = () => { try { localStorage.setItem('butaca-vista', JSON.stringify(vista)); } catch {} };
 const durDe = f => (f.peli && f.peli.duracion ? f.peli.duracion * 60 : f.video && f.video.duracion) || 0;
@@ -180,6 +181,13 @@ function visibles() {
     return true;
   });
   const val = { nombre: f => tituloDe(f).toLowerCase(), año: f => (f.peli && f.peli.año) || 0, nota: f => (f.peli && f.peli.nota) || 0, duracion: durDe, reciente: f => f.fecha || '', edad: f => (f.peli && f.peli.edad) ?? 99 }[vista.orden] || (f => tituloDe(f).toLowerCase());
+  const alfa = (a, b) => tituloDe(a.f).localeCompare(tituloDe(b.f), 'es', { numeric: true });
+  if (vista.orden === 'progreso') {
+    // Primero las que estás viendo (más avanzadas arriba), luego las que no has visto y al final las ya vistas, por nombre
+    const pr = f => { const p = f.prog; if (!p || !p.d || p.t < 30) return { g: 1, x: 0 }; if (p.t >= p.d - 90) return { g: 2, x: 1 }; return { g: 0, x: p.t / p.d }; };
+    ls.sort((a, b) => { const x = pr(a.f), y = pr(b.f); return ((x.g - y.g) || (y.x - x.x) || alfa(a, b)) * vista.dir; });
+    return ls;
+  }
   ls.sort((a, b) => { const x = val(a.f), y = val(b.f); return (typeof x === 'string' ? x.localeCompare(y, 'es', { numeric: true }) : x - y) * vista.dir; });
   return ls;
 }

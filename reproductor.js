@@ -27,7 +27,8 @@ const css = `
 #rp .rp-top{flex:none;display:flex;align-items:center;gap:16px;padding:14px 18px 14px 22px;background:#03070f;border-bottom:1px solid rgba(255,255,255,.06)}
 #rp .rp-tt{flex:1;min-width:0}#rp .rp-tt h2{margin:0;font-size:1rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rp .rp-tt small{color:#93a4c2;font-size:.8rem}
 #rp .rp-x{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}#rp .rp-x:hover{background:rgba(255,255,255,.18)}
-#rp .rp-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000 center/cover no-repeat}
+#rp .rp-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000 center/cover no-repeat;touch-action:none}
+#rp .rp-media{position:absolute;inset:0;transform-origin:0 0}#rp.zoom .rp-media{will-change:transform}
 #rp .rp-stage:before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.86);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
 #rp video,#rp .rp-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:transparent;outline:none}
 #rp .rp-subs{position:absolute;left:5%;right:5%;bottom:7%;text-align:center;pointer-events:none;transition:bottom .2s}
@@ -91,7 +92,7 @@ el.innerHTML = `<div class="rp-top"><div class="rp-tt"><h2></h2><small></small><
 <div class="rp-row"><button class="rp-pp" type="button" title="Reproducir (espacio)">${IC.play}</button><button class="rp-b10 rp-hide-m" type="button" title="Atrás 10 s (←)">${IC.back}</button><button class="rp-f10 rp-hide-m" type="button" title="Adelante 10 s (→)">${IC.fwd}</button>
 <span class="rp-vol"><button class="rp-mute" type="button" title="Silenciar (M)">${IC.vol}</button><input type="range" min="0" max="1" step="0.02" aria-label="Volumen"></span>
 <span class="rp-time">0:00 / 0:00</span><span class="rp-sp"></span>
-<button class="rp-cc" type="button" title="Subtítulos (C)">${IC.cc}</button><button class="rp-cast" type="button" title="Transmitir a un dispositivo">${IC.cast}</button><button class="rp-set" type="button" title="Ajustes: calidad, audio, subtítulos y velocidad"><span class="rp-q"></span>${IC.gear}</button>
+<button class="rp-cc" type="button" title="Subtítulos (C)">${IC.cc}</button><button class="rp-cast" type="button" title="Transmitir a un dispositivo">${IC.cast}</button><button class="rp-set" type="button" title="Ajustes: calidad, audio, subtítulos, encuadre y velocidad"><span class="rp-q"></span>${IC.gear}</button>
 <button class="rp-pipb rp-hide-m" type="button" title="Pantalla en pantalla (P)">${IC.pip}</button><button class="rp-fs" type="button" title="Pantalla completa (F)">${IC.full}</button></div></div>
 <div class="rp-menu"></div><div class="rp-ctx"></div><div class="rp-emb"></div></div>`;
 document.body.appendChild(el);
@@ -120,7 +121,7 @@ function cerrar() {
   if (document.fullscreenElement === el) document.exitFullscreen().catch(() => {});
   el.querySelectorAll('video,audio').forEach(m => { m.pause(); m.removeAttribute('src'); m.load(); });
   $('.rp-media').innerHTML = ''; $('.rp-subs').innerHTML = ''; $('.rp-menu').classList.remove('on'); $('.rp-err').style.display = 'none';
-  el.classList.remove('on', 'cargando', 'rp-play'); document.body.style.overflow = ''; v = null; st0 = null;
+  el.classList.remove('on', 'cargando', 'rp-play'); document.body.style.overflow = ''; v = null; st0 = null; zoomA(1, 0, 0);
 }
 $('.rp-x').onclick = cerrar;
 
@@ -139,6 +140,7 @@ function salto(s) { if (!v) return; v.currentTime = Math.max(0, Math.min((v.dura
 let tapT = 0;
 $('.rp-stage').addEventListener('click', e => {
   if (!v || e.target.closest('.rp-ui,.rp-menu,.rp-err')) return;
+  if (Date.now() - gestoT < 400) return;   // fue un pellizco o un arrastre, no un toque
   if ($('.rp-menu').classList.contains('on')) return $('.rp-menu').classList.remove('on');
   if (matchMedia('(hover:none)').matches && !el.classList.contains('ui')) return despertar();
   const now = Date.now(); if (now - tapT < 280) { clearTimeout(tapT._t); tapT = 0; return fs(); }
@@ -177,6 +179,7 @@ addEventListener('keydown', e => {
   else if (k === 'arrowup' || k === 'arrowdown') { v.muted = false; v.volume = Math.max(0, Math.min(1, v.volume + (k === 'arrowup' ? .05 : -.05))); aviso('Volumen ' + Math.round(v.volume * 100) + ' %'); }
   else if (k === 'f') fs(); else if (k === 'm') v.muted = !v.muted; else if (k === 'p') pip();
   else if (k === 'c') $('.rp-cc').click();
+  else if (k === 'z') { const ks = Object.keys(ENCUADRES); setEncuadre(ks[(ks.indexOf(encuadre) + 1) % ks.length]); }
   else if (/^[0-9]$/.test(k) && v.duration) v.currentTime = v.duration * (+k / 10);
   else hecho = false;
   if (hecho) { e.preventDefault(); despertar(); }
@@ -236,6 +239,8 @@ function menuPrincipal() {
   if (st0.audios.length > 1) menu.append(opcion('Audio', conBandera(st0.audios[st0.a]), () => lista('Audio', st0.audios.map(a => conBandera(a)), st0.a, setAudio)));
   menu.append(opcion('Subtítulos', st0.s < 0 ? (forzadoAuto() >= 0 ? 'Solo forzados' : 'No') : conBandera(st0.subs[st0.s]), () => lista('Subtítulos', ['No'].concat(st0.subs.map(s => conBandera(s))), st0.s + 1, i => setSub(i - 1))));
   const vel = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  menu.append(opcion('Encuadre', ENCUADRES[encuadre][0], () => lista('Encuadre', Object.values(ENCUADRES).map(x => x[0]), Object.keys(ENCUADRES).indexOf(encuadre), i => setEncuadre(Object.keys(ENCUADRES)[i]))));
+  if (zoom.s > 1) menu.append(opcion('Quitar zoom', null, () => { zoomA(1, 0, 0); menu.classList.remove('on'); }));
   menu.append(opcion('Velocidad', v.playbackRate === 1 ? 'Normal' : v.playbackRate + '×', () => lista('Velocidad', vel.map(x => x === 1 ? 'Normal' : x + '×'), vel.indexOf(v.playbackRate), i => { v.playbackRate = vel[i]; })));
 }
 function lista(titulo, ops, sel, fn, nota) {
@@ -304,6 +309,68 @@ function pintarSubs() {
   [...tt.activeCues].forEach(c => { const sp = document.createElement('span'); try { sp.append(c.getCueAsHTML()); } catch { sp.textContent = c.text; } box.append(sp, document.createElement('br')); });
 }
 
+// --- Encuadre y zoom ---
+// Encuadre: tamaño original (con franjas), recortar para llenar la pantalla o estirar. Se recuerda.
+const ENCUADRES = { original: ['Tamaño original', 'contain'], recortar: ['Recortar a la pantalla', 'cover'], estirar: ['Estirar', 'fill'] };
+let encuadre = ENCUADRES[pref.get('encuadre', 'original')] ? pref.get('encuadre', 'original') : 'original';
+function pintarEncuadre() { el.querySelectorAll('.rp-media video,.rp-media .rp-img').forEach(m => { m.style.objectFit = ENCUADRES[encuadre][1]; }); }
+function setEncuadre(k) { encuadre = k; pref.set('encuadre', k); zoomA(1, 0, 0); pintarEncuadre(); aviso(ENCUADRES[k][0]); }
+// Zoom: pellizcar con dos dedos (o el trackpad) agranda; con zoom, un dedo mueve la imagen.
+const zoom = { s: 1, x: 0, y: 0 }, ZMAX = 5;
+let gestoT = 0;
+function zoomA(s, x, y) {
+  const r = $('.rp-stage').getBoundingClientRect();
+  s = Math.max(1, Math.min(ZMAX, s)); if (s < 1.02) { s = 1; x = 0; y = 0; }
+  zoom.s = s; zoom.x = Math.min(0, Math.max(r.width * (1 - s), x)); zoom.y = Math.min(0, Math.max(r.height * (1 - s), y));
+  $('.rp-media').style.transform = s === 1 ? '' : `translate(${zoom.x}px,${zoom.y}px) scale(${s})`;
+  el.classList.toggle('zoom', s > 1);
+}
+// Zoom alrededor de un punto de la pantalla (px, py relativos al escenario): ese punto queda quieto
+const zoomEn = (s, px, py) => { const k = Math.max(1, Math.min(ZMAX, s)) / zoom.s; zoomA(zoom.s * k, px - (px - zoom.x) * k, py - (py - zoom.y) * k); };
+{
+  const stage = $('.rp-stage'), toques = new Map(); let g = null;
+  const rel = p => { const r = stage.getBoundingClientRect(); return { x: p.x - r.left, y: p.y - r.top }; };
+  const dos = () => { const [a, b] = [...toques.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, m: rel({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) }; };
+  stage.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || e.target.closest('.rp-ui,.rp-menu,.rp-ctx,.rp-emb,.rp-err')) return;
+    toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (toques.size === 2) { const t = dos(); g = { d0: t.d, m0: t.m, s0: zoom.s, x0: zoom.x, y0: zoom.y }; }
+    else if (toques.size === 1 && zoom.s > 1) g = { pan: true, p0: { x: e.clientX, y: e.clientY }, x0: zoom.x, y0: zoom.y, mov: false };
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!toques.has(e.pointerId)) return; toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!g) return;
+    if (toques.size >= 2 && !g.pan) {
+      const t = dos(), s = Math.max(1, Math.min(ZMAX, g.s0 * t.d / g.d0)), k = s / g.s0;
+      // el punto que estaba bajo los dedos sigue bajo los dedos (y se puede arrastrar con los dos)
+      zoomA(s, t.m.x - (g.m0.x - g.x0) * k, t.m.y - (g.m0.y - g.y0) * k); gestoT = Date.now(); despertar();
+    } else if (g.pan) {
+      const dx = e.clientX - g.p0.x, dy = e.clientY - g.p0.y;
+      if (!g.mov && Math.hypot(dx, dy) < 8) return;
+      g.mov = true; zoomA(zoom.s, g.x0 + dx, g.y0 + dy); gestoT = Date.now();
+    }
+  });
+  const fin = e => {
+    if (!toques.delete(e.pointerId)) return;
+    if (g && !g.pan && toques.size < 2) { gestoT = Date.now(); if (zoom.s > 1) aviso('Zoom ' + zoom.s.toFixed(1).replace('.', ',') + '×'); }
+    g = null;
+    if (toques.size === 1 && zoom.s > 1) { const [p] = [...toques.values()]; g = { pan: true, p0: p, x0: zoom.x, y0: zoom.y, mov: true }; }
+  };
+  stage.addEventListener('pointerup', fin); stage.addEventListener('pointercancel', fin);
+  // Trackpad (pellizco = rueda con Ctrl) y Ctrl + rueda del mouse
+  stage.addEventListener('wheel', e => {
+    if (!e.ctrlKey || !v && !$('.rp-img')) return;
+    e.preventDefault(); const p = rel({ x: e.clientX, y: e.clientY });
+    zoomEn(zoom.s * Math.exp(-e.deltaY / 120), p.x, p.y); clearTimeout(zoom._t);
+    zoom._t = setTimeout(() => { if (zoom.s > 1) aviso('Zoom ' + zoom.s.toFixed(1).replace('.', ',') + '×'); }, 250);
+  }, { passive: false });
+  // Safari en Mac: gesto de pellizco propio
+  let s0 = 1; stage.addEventListener('gesturestart', e => { e.preventDefault(); s0 = zoom.s; });
+  stage.addEventListener('gesturechange', e => { e.preventDefault(); const p = rel({ x: e.clientX, y: e.clientY }); zoomEn(s0 * e.scale, p.x, p.y); });
+  addEventListener('resize', () => zoomA(1, 0, 0));
+  document.addEventListener('fullscreenchange', () => zoomA(1, 0, 0));
+}
+
 function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, insertar: ins, embed, inicio, progreso }) {
   cerrar();
   const co = cred ? 'use-credentials' : 'anonymous';
@@ -311,11 +378,11 @@ function abrir({ titulo, sub, sinopsis, fondo, kind, src, dl, pistas, cred, inse
   $('.rp-stage').style.backgroundImage = fondo ? `url("${String(fondo).replace(/"/g, '')}")` : '';
   el.classList.toggle('emb', !!embed); cerrarCtx(); emb.classList.remove('on');
   el.classList.add('on', 'ui'); document.body.style.overflow = 'hidden'; el.focus();
-  if (kind === 'image') { $('.rp-ui').style.display = 'none'; const im = document.createElement('img'); im.className = 'rp-img'; im.alt = ''; im.src = src; $('.rp-media').appendChild(im); return; }
+  if (kind === 'image') { $('.rp-ui').style.display = 'none'; const im = document.createElement('img'); im.className = 'rp-img'; im.alt = ''; im.src = src; $('.rp-media').appendChild(im); pintarEncuadre(); return; }
   $('.rp-ui').style.display = '';
   v = document.createElement('video'); const mio0 = v; v.playsInline = true; v.crossOrigin = co; v.preload = 'auto';
   v.volume = pref.get('vol', 1);
-  $('.rp-media').appendChild(v);
+  $('.rp-media').appendChild(v); pintarEncuadre();
   st0 = { co, kind, dl: dl || src, insertar: ins || null, calidades: [{ alto: 0, label: 'Original', src }], q: 0, audios: [{ label: 'Original', src: null }], a: 0, subs: [], s: -1 };
   $('.rp-q').style.display = 'none'; $('.rp-cc').style.display = kind === 'video' ? '' : 'none';
   $('.rp-pipb').style.display = kind === 'video' && document.pictureInPictureEnabled ? '' : 'none';
