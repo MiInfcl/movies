@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Reproductor · Butaca</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Color+Emoji&display=swap">
+<style>
+html,body{margin:0;min-height:100%;background:#03070f;color:#e9eef7;font:15px/1.5 Inter,system-ui,sans-serif}
+#pedir{min-height:100vh;display:grid;place-items:center;padding:20px;box-sizing:border-box}
+#pedir form{width:min(560px,100%);display:flex;flex-direction:column;gap:12px;padding:22px;border-radius:12px;background:#0e1628;border:1px solid rgba(255,255,255,.1)}
+#pedir h1{margin:0;font-size:1.15rem}#pedir p{margin:0;color:#93a4c2;font-size:.86rem}
+#pedir code{background:#060b16;padding:1px 5px;border-radius:4px;font-size:.82rem;word-break:break-all}
+#pedir label{display:flex;flex-direction:column;gap:5px;font-size:.84rem;color:#cdd6e6}
+#pedir input{padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:#060b16;color:#e9eef7;font:inherit;font-size:.92rem}
+#pedir fieldset{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}#pedir fieldset:not(:has(.fila)){display:none}
+#pedir legend{font-size:.84rem;color:#cdd6e6;padding:0;margin-bottom:6px}
+#pedir .fila{display:grid;grid-template-columns:1fr 9em auto;gap:6px}#pedir .fila input{min-width:0}
+#pedir .fila .quitar{all:unset;cursor:pointer;width:34px;display:grid;place-items:center;border-radius:8px;color:#cdd6e6;font-size:1.2rem}#pedir .fila .quitar:hover{background:rgba(255,255,255,.08)}
+#pedir .mas{all:unset;align-self:flex-start;cursor:pointer;color:#8cbcff;font-size:.86rem;font-weight:600;padding:2px 0}#pedir .mas:hover{text-decoration:underline}
+@media(max-width:480px){#pedir .fila{grid-template-columns:1fr auto}#pedir .fila input:nth-child(2){grid-column:1}}
+#pedir button[type=submit]{align-self:flex-end;padding:9px 18px;border:0;border-radius:8px;background:#2563eb;color:#fff;font:600 .9rem Inter,system-ui,sans-serif;cursor:pointer}
+#err{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<div id="pedir" hidden>
+  <form method="get">
+    <h1>Reproductor de Butaca</h1>
+    <p>Pega la dirección de un video. También puedes abrirlo directo con
+      <code>reproductor.html?video=RUTA</code> y, si quieres, <code>&amp;titulo=…</code>,
+      <code>&amp;t=SEGUNDOS</code> para empezar en otro punto, <code>&amp;audio=RUTA</code> para otros idiomas de audio y <code>&amp;sub=RUTA.vtt</code> para subtítulos
+      (los dos pueden ir varias veces; <code>&amp;audionombre=…</code> y <code>&amp;subtitulo=…</code> les ponen nombre). Dentro del reproductor los eliges en Ajustes.</p>
+    <label>Ruta o dirección del video<input name="video" type="text" required placeholder="https://… o carpeta/video.mp4" autocomplete="off"></label>
+    <label>Título (opcional)<input name="titulo" type="text" autocomplete="off"></label>
+    <fieldset id="extAudio"><legend>Otros audios (opcional)</legend></fieldset>
+    <button type="button" class="mas" data-para="extAudio">+ Agregar audio</button>
+    <fieldset id="extSub"><legend>Subtítulos .vtt (opcional)</legend></fieldset>
+    <button type="button" class="mas" data-para="extSub">+ Agregar subtítulos</button>
+    <button type="submit">Reproducir</button>
+  </form>
+</div>
+<div id="err" hidden></div>
+<script src="config.js?v=4"></script>
+<script src="reproductor.js?v=25"></script>
+<script>
+// Reproductor suelto: reproductor.html?video=<ruta o URL>[&titulo=…][&t=segundos][&sub=<ruta .vtt>]…
+// La ruta puede ser absoluta (https://…) o relativa a este sitio. Si es un enlace de Butaca
+// (/api/stream/<id>/<nombre>?f=<firma>), se piden además sus audios, subtítulos y calidades.
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const ruta = (q.get('video') || q.get('v') || '').trim();
+  const fallo = m => { const e = document.getElementById('err'); e.textContent = m; e.hidden = false; };
+  if (!ruta) {
+    // Formulario: cada «+ Agregar» suma una fila (ruta + nombre) que viaja por GET como audio/audionombre o sub/subtitulo
+    const fila = (caja, ruta, nombre) => {
+      const d = document.createElement('div'); d.className = 'fila';
+      d.innerHTML = `<input type="text" name="${ruta}" placeholder="https://… o carpeta/archivo" autocomplete="off" aria-label="Ruta"><input type="text" name="${nombre}" placeholder="Nombre" autocomplete="off" aria-label="Nombre"><button type="button" class="quitar" aria-label="Quitar">×</button>`;
+      d.querySelector('.quitar').onclick = () => d.remove(); caja.append(d); d.querySelector('input').focus();
+    };
+    document.querySelectorAll('#pedir .mas').forEach(b => b.onclick = () => b.dataset.para === 'extAudio' ? fila(document.getElementById('extAudio'), 'audio', 'audionombre') : fila(document.getElementById('extSub'), 'sub', 'subtitulo'));
+    // Filas vacías no viajan (el nombre va junto a su ruta: si la ruta está vacía se quitan las dos)
+    document.querySelector('#pedir form').addEventListener('submit', () => document.querySelectorAll('#pedir .fila').forEach(d => { if (!d.querySelector('input').value.trim()) d.remove(); else if (!d.querySelectorAll('input')[1].value.trim()) d.querySelectorAll('input')[1].value = '-'; }));
+    document.getElementById('pedir').hidden = false; document.querySelector('#pedir input').focus(); return;
+  }
+  // Solo direcciones web (http/https); nada de javascript:, data: ni similares
+  const segura = r => { try { const u = new URL(r, location.href); return /^https?:$/.test(u.protocol) ? u.href : null; } catch { return null; } };
+  const src = segura(ruta);
+  if (!src) return fallo('La ruta del video no es válida.');
+  const nombre = decodeURIComponent(new URL(src).pathname.split('/').pop() || '');
+  const titulo = q.get('titulo') || nombre.replace(/\.[^.]+$/, '') || 'Video';
+  document.title = titulo + ' · Butaca';
+  const inicio = Math.max(0, parseFloat(q.get('t')) || 0);
+  const kind = /\.(jpe?g|png|webp|gif|avif)$/i.test(nombre) ? 'image' : 'video';
+
+  // Pistas extra por GET: el nombre sale de &audionombre= / &subtitulo= (en el mismo orden) o del archivo («peli.es.vtt» → Español)
+  const NOMBRES = { es: 'Español', spa: 'Español', lat: 'Español latino', en: 'Inglés', eng: 'Inglés', pt: 'Portugués', por: 'Portugués', fr: 'Francés', fre: 'Francés', fra: 'Francés', it: 'Italiano', ita: 'Italiano', de: 'Alemán', ger: 'Alemán', deu: 'Alemán', ja: 'Japonés', jpn: 'Japonés' };
+  const extras = (clave, claveNombre, generico) => {
+    const nombres = q.getAll(claveNombre);
+    return q.getAll(clave).map((r, i) => ({ s: segura(r.trim()), n: (nombres[i] || '').trim() })).filter(x => x.s).map((x, i) => {
+      const n = decodeURIComponent(new URL(x.s).pathname.split('/').pop()).replace(/\.[^.]+$/, '');
+      const lang = ((/[._-]([a-z]{2,3})$/i.exec(n) || [])[1] || '').toLowerCase();
+      return { label: x.n && x.n !== '-' ? x.n : NOMBRES[lang] || n || generico + ' ' + (i + 2), lang, src: x.s };
+    });
+  };
+  const subsGet = extras('sub', 'subtitulo', 'Subtítulos');
+  const audiosGet = extras('audio', 'audionombre', 'Audio');
+  const sumar = p => ({ ...p, audios: (p.audios && p.audios.length ? p.audios : [{ label: 'Original', src: null }]).concat(audiosGet), subs: (p.subs || []).concat(subsGet) });
+  const hayExtras = subsGet.length || audiosGet.length;
+
+  // ¿Es un video de Butaca? Entonces trae sus pistas (audios, subtítulos y calidades) con la misma firma
+  let pistas = null;
+  const m = /\/api\/stream\/([^/]+)\//.exec(new URL(src).pathname), firma = new URL(src).searchParams.get('f');
+  if (m && firma && typeof MEDIOS !== 'undefined') {
+    pistas = async () => {
+      try {
+        const r = await fetch(MEDIOS.API + '/api/pistas?id=' + encodeURIComponent(decodeURIComponent(m[1])) + '&f=' + encodeURIComponent(firma));
+        if (r.ok) return sumar(await r.json());
+      } catch {}
+      return hayExtras ? sumar({}) : null;
+    };
+  } else if (hayExtras) pistas = async () => sumar({});
+
+  Reproductor.abrir({ titulo, kind, src, dl: src, cred: false, embed: true, pistas });
+  // &t=: se respeta tal cual (también en videos cortos), una vez que el video sabe cuánto dura
+  const vid = document.querySelector('#rp video');
+  if (vid && inicio) vid.addEventListener('loadedmetadata', () => { if (inicio < vid.duration) vid.currentTime = inicio; }, { once: true });
+})();
+</script>
+</body>
+</html>
